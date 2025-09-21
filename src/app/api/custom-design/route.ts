@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     // Enviar email usando nodemailer
     const adminEmail = process.env.CONTACT_EMAIL || 'jotacegaete@gmail.com';
 
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: false,

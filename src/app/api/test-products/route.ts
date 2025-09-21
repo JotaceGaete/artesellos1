@@ -7,7 +7,7 @@ export async function GET() {
     console.log('🧪 Testing product fetching and adaptation...');
     
     // Test 1: Obtener productos raw de Supabase
-    const supabaseProducts = await supabaseUtils.getProducts();
+    const supabaseProducts = await supabaseUtils.getProduct('sample-id');
     console.log('Raw Supabase products:', supabaseProducts?.length || 0);
     
     if (!supabaseProducts || supabaseProducts.length === 0) {

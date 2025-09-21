@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
 
     const pref = await preference.create({
       body: {
-        items: items.map((it) => ({
+        items: items.map((it, index) => ({
+          id: `item-${index}`,
           title: it.title,
           quantity: it.quantity,
           unit_price: it.unit_price,

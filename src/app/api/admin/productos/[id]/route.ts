@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabaseServer'
+import type { Database, Json } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -79,20 +80,23 @@ export async function PUT(
       )
     }
 
+    // Construir payload tipado explícitamente para evitar `never`
+    const payload: Database['public']['Tables']['products']['Update'] = {
+      name,
+      slug,
+      price: Number(price),
+      description,
+      short_description,
+      images: (images as unknown as Json),
+      stock_quantity: Number(stock_quantity) || 0,
+      stock_status,
+      updated_at: new Date().toISOString()
+    }
+
     // Actualizar el producto
     const { data: product, error } = await supabase
       .from('products')
-      .update({
-        name,
-        slug,
-        price: Number(price),
-        description,
-        short_description,
-        images: JSON.stringify(images),
-        stock_quantity: Number(stock_quantity) || 0,
-        stock_status,
-        updated_at: new Date().toISOString()
-      })
+      .update(payload)
       .eq('id', id)
       .select()
       .single()

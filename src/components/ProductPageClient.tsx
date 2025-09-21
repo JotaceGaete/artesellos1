@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import ShippingEstimator from '@/components/ShippingEstimator';
 import ProductImageGallery from '@/components/ProductImageGallery';
-import { Product, CustomizedProduct } from '@/types/product';
+import { Product } from '@/types/product';
 import { formatPrice } from '@/lib/pricingUtils';
 
 interface ProductPageClientProps {
@@ -212,23 +212,7 @@ Total: ${formatPrice(totalPrice)}
 
           {/* Price */}
           <div className="flex items-center space-x-4">
-            {customizedProduct ? (
-              <>
-                <span className="text-3xl font-bold text-gray-900">
-                  {formatPrice(customizedProduct.calculated_price + inkSurcharge)}
-                </span>
-                {(product.on_sale || inkSurcharge > 0) && (
-                  <span className="text-lg text-gray-500 line-through">
-                    {formatPrice(parseFloat(product.price))}
-                  </span>
-                )}
-                {customizedProduct.customization_fee > 0 && (
-                  <span className="bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full text-sm font-semibold">
-                    +{formatPrice(customizedProduct.customization_fee)} personalización
-                  </span>
-                )}
-              </>
-            ) : product.on_sale && product.sale_price ? (
+            {product.on_sale && product.sale_price ? (
               <>
                 <span className="text-3xl font-bold text-gray-900">
                   {formatPrice(parseFloat(product.sale_price) + inkSurcharge)}
