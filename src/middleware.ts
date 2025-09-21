@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function middleware() {
   // Middleware simplificado - sin autenticación de usuario
   // Solo para futuras funcionalidades si es necesario
   return NextResponse.next()

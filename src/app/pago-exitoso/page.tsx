@@ -13,7 +13,7 @@ export default function PagoExitosoPage() {
   useEffect(() => {
     // Obtener parámetros de la URL de Mercado Pago
     const status = searchParams.get('status');
-    const paymentId = searchParams.get('payment_id');
+    // const paymentId = searchParams.get('payment_id');
     const externalReference = searchParams.get('external_reference');
     
     setPaymentStatus(status);

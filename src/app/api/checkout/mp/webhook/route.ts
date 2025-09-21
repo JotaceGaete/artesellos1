@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
         // Extraer información relevante
         const externalReference = payment.external_reference;
         const status = payment.status;
-        const transactionAmount = payment.transaction_amount;
-        const currency = payment.currency_id;
+        // const transactionAmount = payment.transaction_amount;
+        // const currency = payment.currency_id;
 
         if (!externalReference) {
           console.log('❌ External reference no encontrado en el pago');
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 }
 
 // Manejar peticiones GET para verificación
-export async function GET(req: NextRequest) {
+export async function GET() {
   return NextResponse.json({ 
     message: 'Webhook endpoint activo',
     timestamp: new Date().toISOString()

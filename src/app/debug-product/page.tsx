@@ -1,4 +1,5 @@
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
+import Link from 'next/link';
 
 export default async function DebugProduct() {
   let productData = null;
@@ -51,12 +52,12 @@ export default async function DebugProduct() {
       )}
 
       <div className="mt-6 text-center">
-        <a 
+        <Link 
           href="/" 
           className="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
         >
           ← Volver al Inicio
-        </a>
+        </Link>
       </div>
     </div>
   );

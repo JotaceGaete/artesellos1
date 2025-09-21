@@ -13,10 +13,10 @@ interface ProductPageClientProps {
 }
 
 export default function ProductPageClient({ product }: ProductPageClientProps) {
-  const [customizedProduct, setCustomizedProduct] = useState<CustomizedProduct | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string>(
-    product.customization_options?.color_options?.default_color || '#000000'
-  );
+  // const [customizedProduct, setCustomizedProduct] = useState<CustomizedProduct | null>(null);
+  // const [selectedColor, setSelectedColor] = useState<string>(
+  //   product.customization_options?.color_options?.default_color || '#000000'
+  // );
   // Color de tinta (UI)
   const [inkColor, setInkColor] = useState<'negro' | 'azul' | 'rojo' | 'verde' | 'blanco' | 'morado'>('negro');
   const [colorVariants, setColorVariants] = useState<Array<{ id: string; color_slug: string; color_name: string; hex?: string; image_url?: string; stock_quantity: number; is_default: boolean }>>([])
@@ -28,8 +28,8 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   const isCustomizable = product.customization_options?.allow_custom_dimensions || false;
   
   // Verificar si el producto tiene múltiples colores
-  const availableColors = product.customization_options?.color_options?.available_colors || [];
-  const hasMultipleColors = availableColors.length > 1;
+  // const availableColors = product.customization_options?.color_options?.available_colors || [];
+  // const hasMultipleColors = availableColors.length > 1;
 
   // Cargar variantes de colores de carcaza (si existen)
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
         const data = await res.json()
         if (Array.isArray(data.items)) {
           setColorVariants(data.items)
-          const def = data.items.find((c: any) => c.is_default) || data.items[0]
+          const def = data.items.find((c: { is_default: boolean }) => c.is_default) || data.items[0]
           setSelectedShell(def ? def.color_slug : null)
         }
       } catch {}
