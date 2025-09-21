@@ -7,14 +7,15 @@ export const revalidate = 0
 // GET - Obtener producto por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createSupabaseAdmin()
     const { data: product, error } = await supabase
       .from('products')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -38,9 +39,10 @@ export async function GET(
 // PUT - Actualizar producto
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json()
     const {
       name,
@@ -67,7 +69,7 @@ export async function PUT(
       .from('products')
       .select('id')
       .eq('slug', slug)
-      .neq('id', params.id)
+      .neq('id', id)
       .single()
 
     if (existingProduct) {
@@ -91,7 +93,7 @@ export async function PUT(
         stock_status,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -120,16 +122,17 @@ export async function PUT(
 // DELETE - Eliminar producto
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createSupabaseAdmin()
 
     // Verificar que el producto existe
     const { data: product, error: fetchError } = await supabase
       .from('products')
       .select('id, name')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !product) {
@@ -143,13 +146,13 @@ export async function DELETE(
     await supabase
       .from('product_colors')
       .delete()
-      .eq('product_id', params.id)
+      .eq('product_id', id)
 
     // Eliminar el producto
     const { error: deleteError } = await supabase
       .from('products')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError)
