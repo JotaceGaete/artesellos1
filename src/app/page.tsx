@@ -1,103 +1,143 @@
-import Image from "next/image";
+import Link from 'next/link';
+import ProductGrid from '@/components/ProductGrid';
+import ProductCarousel from '@/components/ProductCarousel';
+import Carousel from '@/components/Carousel';
+import Categorias from '@/components/Categorias';
+// Slides ahora se obtienen desde Supabase vía API admin pública
+import { headers } from 'next/headers';
+import { carouselSlides } from '@/lib/carouselData';
+import { supabaseServerUtils } from '@/lib/supabaseUtils';
+import { adaptSupabaseProducts } from '@/lib/productAdapter';
 
-export default function Home() {
+// Obtener y adaptar productos desde Supabase (server) usando utilidades tipadas
+async function getMyRealProducts() {
+  const supa = await supabaseServerUtils.getProducts();
+  return adaptSupabaseProducts(supa);
+}
+
+async function getSlides() {
+  try {
+    // Construir URL absoluta a partir de headers (funciona en dev y prod)
+    const hdrs = await headers();
+    const host = hdrs.get('x-forwarded-host') || hdrs.get('host');
+    const proto = hdrs.get('x-forwarded-proto') || 'http';
+    const base = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || '');
+    const url = `${base}/api/admin/slider`;
+
+    const res = await fetch(url, { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok) return []
+    const apiSlides = (data.items || []).map((s: any, i: number) => ({
+      id: i + 1,
+      title: s.title,
+      subtitle: s.subtitle,
+      description: s.description,
+      buttonText: s.button_text,
+      buttonLink: s.button_link,
+      backgroundColor: s.background_color,
+      textColor: s.text_color,
+      image: s.image_url,
+    }))
+    return apiSlides.length > 0 ? apiSlides : carouselSlides
+  } catch {
+    // Fallback a contenido por defecto si falla el API
+    return carouselSlides
+  }
+}
+
+export default async function Home() {
+  // 🚀 Usar SOLO datos REALES desde Supabase (sin fallback a mocks)
+  const realProducts = await getMyRealProducts();
+  const featuredProducts = realProducts.filter((p: any) => p.featured).slice(0, 4);
+  const products = realProducts.slice(0, 8);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div>
+      {/* Carousel Hero Section */}
+      <Carousel 
+        slides={await getSlides()} 
+        autoplayInterval={6000}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Featured Products Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Productos Destacados
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Nuestros diseños más populares y queridos por nuestros clientes
+            </p>
+          </div>
+
+          <ProductCarousel
+            products={featuredProducts}
+            emptyMessage="No hay productos destacados disponibles en este momento."
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </section>
+
+      {/* Categories Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Explora por Categorías
+            </h2>
+            <p className="text-lg text-gray-600">
+              Encuentra el timbre perfecto para tu ocasión especial
+            </p>
+          </div>
+
+          <Categorias />
+        </div>
+      </section>
+
+      {/* All Products Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-12">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Todos Nuestros Productos
+              </h2>
+              <p className="text-lg text-gray-600">
+                Explora nuestra colección completa de timbres personalizados
+              </p>
+            </div>
+            <Link
+              href="/productos"
+              className="text-indigo-600 hover:text-indigo-800 font-semibold"
+            >
+              Ver todos →
+            </Link>
+          </div>
+
+          <ProductGrid
+            products={products}
+            emptyMessage="No hay productos disponibles en este momento."
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </section>
+
+      {/* Call to Action Section */}
+      <section className="py-16 bg-indigo-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold mb-4">
+            ¿Tienes una idea especial?
+          </h2>
+          <p className="text-xl mb-8 text-indigo-100">
+            Podemos crear un diseño personalizado único para ti
+          </p>
+          <Link
+            href="/contacto"
+            className="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block"
+          >
+            Solicitar Diseño Personalizado
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

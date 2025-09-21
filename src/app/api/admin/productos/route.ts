@@ -1,0 +1,78 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServer, getUser, createSupabaseAdmin } from '@/lib/supabaseServer'
+
+const ALLOWED_ADMIN_EMAILS = new Set<string>([
+  'jotacegaete@gmail.com',
+  'artesellos@outlook.com',
+])
+
+export async function POST(req: NextRequest) {
+  try {
+    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'
+    if (!BYPASS) {
+      const user = await getUser()
+      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+        return NextResponse.json({ message: 'No autorizado' }, { status: 401 })
+      }
+    }
+
+    const body = await req.json().catch(() => ({}))
+    const { name, slug, price, description, short_description, images, categories } = body as {
+      name: string
+      slug: string
+      price: number
+      description?: string
+      short_description?: string
+      images?: string[]
+      categories?: string[]
+    }
+
+    if (!name || !slug || !Number.isFinite(price)) {
+      return NextResponse.json({ message: 'Datos inválidos (nombre, slug, precio)' }, { status: 400 })
+    }
+
+    // Usar admin para insertar y evitar RLS
+    const supabase = createSupabaseAdmin()
+
+    // Normalizar imágenes: array de strings
+    const normalizedImages: string[] = Array.isArray(images)
+      ? images.map((s) => String(s).trim()).filter(Boolean)
+      : []
+    const normalizedCategories: string[] = Array.isArray(categories)
+      ? categories.map((s) => String(s).trim()).filter(Boolean)
+      : []
+
+    const payload: any = {
+      name,
+      slug,
+      price: Math.round(price),
+      regular_price: Math.round(price),
+      on_sale: false,
+      description: description ?? '',
+      short_description: short_description ?? '',
+      images: normalizedImages,
+      categories: normalizedCategories,
+      attributes: [],
+      stock_status: 'instock',
+      stock_quantity: 10,
+      tags: [],
+      featured: false,
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .insert([payload])
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, product: data })
+  } catch (err: any) {
+    return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 })
+  }
+}
+
+
