@@ -17,7 +17,7 @@ export default async function WorkingDemo() {
       featured: p.featured || false,
       // Manejar imágenes de forma simple
       imageUrl: Array.isArray(p.images) && p.images.length > 0 
-        ? (typeof p.images[0] === 'string' ? p.images[0] : p.images[0]?.src || '/placeholder.jpg')
+        ? (typeof p.images[0] === 'string' ? p.images[0] : (p.images[0] as any)?.src || '/placeholder.jpg')
         : '/placeholder.jpg'
     }));
     
@@ -53,7 +53,10 @@ export default async function WorkingDemo() {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                        const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (nextElement) {
+                          nextElement.style.display = 'flex';
+                        }
                       }}
                     />
                   ) : null}

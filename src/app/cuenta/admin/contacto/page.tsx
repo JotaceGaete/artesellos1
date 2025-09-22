@@ -17,7 +17,7 @@ export default async function AdminContactPage() {
   }
 
   // Verificar que el usuario es admin
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from('profiles')
     .select('role')
     .eq('id', user.id)

@@ -1,4 +1,7 @@
 import { User } from '@supabase/supabase-js'
+import { Database } from './database'
+
+type Order = Database['public']['Tables']['orders']['Row']
 
 export type UserRole = 'ANON' | 'CLIENTE' | 'COMERCIO' | 'ADMIN';
 

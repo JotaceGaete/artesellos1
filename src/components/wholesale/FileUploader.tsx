@@ -110,7 +110,7 @@ export default function FileUploader({ wholesaleAccountId }: FileUploaderProps) 
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('Usuario no autenticado')
 
-        const { error: dbError } = await supabase
+        const { error: dbError } = await (supabase as any)
           .from('art_files')
           .insert({
             user_id: user.id,
@@ -191,7 +191,7 @@ export default function FileUploader({ wholesaleAccountId }: FileUploaderProps) 
       if (!user) throw new Error('Usuario no autenticado')
 
       // Crear trabajo personalizado
-      const { data: job, error: jobError } = await supabase
+      const { data: job, error: jobError } = await (supabase as any)
         .from('custom_jobs')
         .insert({
           user_id: user.id,
@@ -211,7 +211,7 @@ export default function FileUploader({ wholesaleAccountId }: FileUploaderProps) 
       // Asociar archivos exitosos al trabajo
       const successfulFiles = files.filter(f => f.status === 'success')
       if (successfulFiles.length > 0) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (supabase as any)
           .from('art_files')
           .update({ job_id: job.id })
           .in('filename', successfulFiles.map(f => f.name))

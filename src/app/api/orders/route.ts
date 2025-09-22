@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json()
     const supabase = createSupabaseAdmin()
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('orders')
         .insert([payload])
         .select('id')

@@ -64,7 +64,7 @@ export const supabaseServerUtils = {
       throw error;
     }
     
-    console.log('✅ Producto encontrado:', data ? data.name : 'No encontrado');
+    console.log('✅ Producto encontrado:', data ? (data as any).name : 'No encontrado');
     return data;
   },
 

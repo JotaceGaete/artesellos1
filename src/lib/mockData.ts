@@ -191,8 +191,6 @@ export const mockProducts: Product[] = [
         unit: "mm"
       },
       material: "Goma de alta calidad",
-      ink_capacity: "Tinta incluida para 1000+ impresiones",
-      durability: "Diseño resistente al uso frecuente",
       max_text_lines: 2,
       recommended_uses: ["Tarjetas navideñas", "Envolturas de regalo", "Correspondencia festiva"]
     },

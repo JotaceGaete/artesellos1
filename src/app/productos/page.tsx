@@ -5,8 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getProducts, getCategories } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
+import { Product as ProductType } from '@/types/product';
 
-interface Product {
+interface WooCommerceProduct {
   id: number;
   name: string;
   slug: string;
@@ -30,6 +31,41 @@ interface Product {
   stock_status: 'instock' | 'outofstock' | 'onbackorder';
   featured: boolean;
 }
+
+// Función para convertir WooCommerce Product a ProductType
+const convertWooCommerceToProductType = (wooProduct: WooCommerceProduct): ProductType => {
+  return {
+    id: wooProduct.id,
+    name: wooProduct.name,
+    slug: wooProduct.slug,
+    description: wooProduct.description,
+    short_description: wooProduct.short_description,
+    price: wooProduct.price,
+    regular_price: wooProduct.regular_price,
+    sale_price: wooProduct.sale_price,
+    on_sale: wooProduct.on_sale,
+    images: wooProduct.images.map(img => ({
+      id: img.id,
+      src: img.src,
+      name: img.name,
+      alt: img.alt
+    })),
+    categories: wooProduct.categories.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug
+    })),
+    attributes: [],
+    stock_status: wooProduct.stock_status,
+    stock_quantity: null,
+    weight: '',
+    dimensions: { length: '', width: '', height: '' },
+    tags: [],
+    featured: wooProduct.featured,
+    date_created: '',
+    date_modified: ''
+  };
+};
 
 interface Category {
   id: number;
@@ -55,7 +91,7 @@ const priceRanges = [
 ];
 
 export default function ProductosPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -166,8 +202,10 @@ export default function ProductosPage() {
         return 0;
       });
 
-      setProducts(filteredProducts);
-      setTotalPages(Math.ceil(filteredProducts.length / productsPerPage));
+      // Convertir productos de WooCommerce al tipo correcto
+      const convertedProducts = filteredProducts.map(convertWooCommerceToProductType);
+      setProducts(convertedProducts);
+      setTotalPages(Math.ceil(convertedProducts.length / productsPerPage));
     } catch (error) {
       console.error('Error loading products:', error);
       setProducts([]);

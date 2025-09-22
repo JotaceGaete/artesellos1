@@ -1,47 +1,99 @@
-// Página dedicada para mostrar TU producto real sin dependencias complejas
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-// Recrear la conexión Supabase directamente aquí para evitar import issues
-async function getMyProduct() {
-  try {
-    // Usar fetch directo a la API de Supabase
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/products?select=*`, {
-      headers: {
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        'Content-Type': 'application/json'
+export default function ProductoRealPage() {
+  const [producto, setProducto] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getMyProduct = async () => {
+      try {
+        console.log('🚀 Cargando TU producto usando fetch directo...');
+        
+        // Usar fetch directo a la API de Supabase
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/products?select=*`, {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const products = await response.json();
+        console.log('🎯 Productos obtenidos vía fetch directo:', products.length);
+        
+        const product = products[0] || null; // Tu producto "Shiny S-722"
+        setProducto(product);
+        
+        if (product) {
+          console.log(`✅ ¡Tu producto cargado: ${product.name}!`);
+        }
+      } catch (error: any) {
+        setError(error.message);
+        console.error('❌ Error con fetch directo:', error);
+      } finally {
+        setLoading(false);
       }
-    });
+    };
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const products = await response.json();
-    console.log('🎯 Productos obtenidos vía fetch directo:', products.length);
-    
-    return products[0] || null; // Tu producto "Shiny S-722"
-  } catch (error) {
-    console.error('❌ Error con fetch directo:', error);
-    return null;
+    getMyProduct();
+  }, []);
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="max-w-md mx-auto text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Cargando tu producto...
+          </h2>
+          <p className="text-gray-600">
+            Obteniendo datos desde Supabase
+          </p>
+        </div>
+      </div>
+    );
   }
-}
 
-export default async function ProductoRealPage() {
-  console.log('🚀 Cargando TU producto usando fetch directo...');
-  
-  const producto = await getMyProduct();
-  
-  if (!producto) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         <div className="max-w-md mx-auto text-center">
           <div className="text-6xl mb-4">❌</div>
+          <h1 className="text-2xl font-bold text-red-900 mb-4">
+            Error al cargar
+          </h1>
+          <p className="text-red-600 mb-6">
+            {error}
+          </p>
+          <Link 
+            href="/"
+            className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Volver al Inicio
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!producto) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="max-w-md mx-auto text-center">
+          <div className="text-6xl mb-4">📦</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            No se pudo cargar tu producto
+            No se encontró tu producto
           </h1>
           <p className="text-gray-600 mb-6">
-            Hubo un problema conectando con Supabase. Verifica tu configuración.
+            No se pudo cargar tu producto desde Supabase. Verifica que tengas productos en tu base de datos.
           </p>
           <Link 
             href="/"

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { supabaseUtils } from '@/lib/supabase';
+import { supabaseUtils, supabase } from '@/lib/supabase';
 import { sendQuoteRequest } from '@/lib/email';
 
 interface QuoteFormData {
@@ -58,7 +58,7 @@ export default function CotizacionesPage() {
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `quote-references/${fileName}`;
 
-      const { error: uploadError } = await supabaseUtils.supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file);
 
@@ -67,7 +67,7 @@ export default function CotizacionesPage() {
         return null;
       }
 
-      const { data } = supabaseUtils.supabase.storage
+      const { data } = supabase.storage
         .from('images')
         .getPublicUrl(filePath);
 

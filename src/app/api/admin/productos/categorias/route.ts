@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const normalized: string[] = categories.map((c: any) => String(c).trim()).filter(Boolean)
 
     const supabase = createSupabaseAdmin()
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('products')
       .update({ categories: normalized })
       .eq('id', product_id)

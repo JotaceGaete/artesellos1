@@ -174,7 +174,7 @@ Total: ${formatPrice(totalPrice)}
         <div className="space-y-6">
           {/* Categories */}
           <div className="flex flex-wrap gap-2">
-            {product.categories.map((category, index) => {
+            {(product.categories as any[]).map((category, index) => {
               const categoryName = typeof category === 'string' ? category : category.name;
               const categorySlug = typeof category === 'string' ? category.toLowerCase() : category.slug;
               const categoryId = typeof category === 'string' ? category : category.id;
@@ -318,8 +318,8 @@ Total: ${formatPrice(totalPrice)}
         <div className="mt-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Etiquetas</h3>
           <div className="flex flex-wrap gap-2">
-            {product.tags.map((tag, index) => {
-              const tagName = typeof tag === 'string' ? tag : tag.name;
+            {(product.tags as any[]).map((tag, index) => {
+              const tagName = typeof tag === 'string' ? tag : tag.name; 
               const tagSlug = typeof tag === 'string' ? tag.toLowerCase() : tag.slug;
               const tagId = typeof tag === 'string' ? tag : tag.id;
               

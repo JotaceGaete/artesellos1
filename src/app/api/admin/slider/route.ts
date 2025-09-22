@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (action === 'create') {
       const payload = { ...body }
       delete (payload as any).action
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('slider_slides')
         .insert([payload])
         .select()
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       if (!id) return NextResponse.json({ message: 'id requerido' }, { status: 400 })
       delete (rest as any).action
       const patch = Object.fromEntries(Object.entries(rest).filter(([_, v]) => v !== undefined))
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('slider_slides')
         .update(patch)
         .eq('id', id)

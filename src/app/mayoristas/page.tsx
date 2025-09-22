@@ -20,7 +20,7 @@ export default async function MayoristasPage() {
   }
 
   // Obtener perfil del usuario
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -35,7 +35,7 @@ export default async function MayoristasPage() {
 
   // Si es comercio, obtener cuenta mayorista
   if (userRole === 'COMERCIO') {
-    const { data: wholesaleAccount } = await supabase
+    const { data: wholesaleAccount } = await (supabase as any)
       .from('wholesale_accounts')
       .select('*')
       .eq('user_id', user.id)

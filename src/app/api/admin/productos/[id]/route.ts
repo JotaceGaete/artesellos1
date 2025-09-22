@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabaseServer'
-import type { Database, Json } from '@/types/database'
+import type { Json } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -93,9 +93,10 @@ export async function PUT(
       updated_at: new Date().toISOString()
     }
 
-    const { data: product, error } = await supabase
+    // Usar supabase client con tipado más permisivo
+    const { data: product, error } = await (supabase as any)
       .from('products')
-      .update(updateData as never)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
@@ -167,7 +168,7 @@ export async function DELETE(
 
     return NextResponse.json({ 
       success: true,
-      message: `Producto "${productToDelete.name}" eliminado exitosamente` 
+      message: `Producto eliminado exitosamente` 
     })
   } catch (error) {
     console.error('Error in DELETE /api/admin/productos/[id]:', error)

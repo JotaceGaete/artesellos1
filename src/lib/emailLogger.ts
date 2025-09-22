@@ -24,7 +24,7 @@ export async function logEmail(
   try {
     const supabase = await createSupabaseServer();
     
-    const { data: logEntry, error } = await supabase
+    const { data: logEntry, error } = await (supabase as any)
       .from('mail_log')
       .insert({
         to_email: data.to,

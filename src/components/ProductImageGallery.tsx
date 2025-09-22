@@ -3,13 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-
-interface ProductImage {
-  id: string;
-  src: string;
-  alt: string;
-  color?: string;
-}
+import { ProductImage } from '@/types/product';
 
 interface ProductImageGalleryProps {
   images: ProductImage[];
@@ -131,7 +125,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
         <div className="flex gap-2 overflow-x-auto pb-2">
           {images.map((image, index) => (
             <button
-              key={image.id || index}
+              key={image.id.toString() || index}
               onClick={() => goToImage(index)}
               className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
                 index === currentImageIndex 

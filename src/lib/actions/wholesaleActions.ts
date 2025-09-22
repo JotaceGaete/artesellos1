@@ -55,7 +55,7 @@ export async function createWholesaleRequest(formData: FormData): Promise<Wholes
     }
 
     // Crear solicitud mayorista
-    const { data: requestData, error: insertError } = await supabase
+    const { data: requestData, error: insertError } = await (supabase as any)     
       .from('wholesale_requests')
       .insert({
         user_id: user.id,
@@ -116,7 +116,7 @@ export async function saveFileMetadata(
       return { success: false, error: 'Usuario no autenticado' };
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('art_files')
       .insert({
         request_id: requestId,

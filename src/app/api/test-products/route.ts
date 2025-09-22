@@ -7,15 +7,15 @@ export async function GET() {
     console.log('🧪 Testing product fetching and adaptation...');
     
     // Test 1: Obtener productos raw de Supabase
-    const supabaseProducts = await supabaseUtils.getProduct('sample-id');
-    console.log('Raw Supabase products:', supabaseProducts?.length || 0);
+    const supabaseProduct = await (supabaseUtils as any).getProduct('sample-id');
+    console.log('Raw Supabase product:', supabaseProduct ? 'Found' : 'Not found');
     
-    if (!supabaseProducts || supabaseProducts.length === 0) {
+    if (!supabaseProduct) {
       return NextResponse.json({
         success: true,
-        message: 'No products found in Supabase',
-        supabaseProducts: [],
-        adaptedProducts: [],
+        message: 'No product found in Supabase',
+        supabaseProduct: null,
+        adaptedProduct: null,
         tests: {
           supabaseQuery: 'Empty result',
           adaptation: 'Skipped'
@@ -23,38 +23,34 @@ export async function GET() {
       });
     }
     
-    // Test 2: Mostrar estructura del primer producto
-    const firstProduct = supabaseProducts[0];
-    console.log('First product structure:', Object.keys(firstProduct));
+    // Test 2: Mostrar estructura del producto
+    console.log('Product structure:', Object.keys(supabaseProduct));
     
-    // Test 3: Adaptar productos
-    const adaptedProducts = adaptSupabaseProducts(supabaseProducts);
-    console.log('Adapted products:', adaptedProducts?.length || 0);
+    // Test 3: Adaptar producto (convertir a array para el adaptador)
+    const adaptedProducts = adaptSupabaseProducts([supabaseProduct]);
+    const adaptedProduct = adaptedProducts[0];
+    console.log('Adapted product:', adaptedProduct ? 'Success' : 'Failed');
     
     return NextResponse.json({
       success: true,
       message: 'Product test completed',
-      counts: {
-        supabase: supabaseProducts.length,
-        adapted: adaptedProducts.length
+      supabaseProduct: {
+        id: supabaseProduct.id,
+        name: supabaseProduct.name,
+        price: supabaseProduct.price,
+        priceType: typeof supabaseProduct.price,
+        imagesType: typeof supabaseProduct.images,
+        imagesLength: Array.isArray(supabaseProduct.images) ? supabaseProduct.images.length : 'Not array',
+        categoriesType: typeof supabaseProduct.categories,
+        structure: Object.keys(supabaseProduct)
       },
-      firstSupabaseProduct: {
-        id: firstProduct.id,
-        name: firstProduct.name,
-        price: firstProduct.price,
-        priceType: typeof firstProduct.price,
-        imagesType: typeof firstProduct.images,
-        imagesLength: Array.isArray(firstProduct.images) ? firstProduct.images.length : 'Not array',
-        categoriesType: typeof firstProduct.categories,
-        structure: Object.keys(firstProduct)
-      },
-      firstAdaptedProduct: adaptedProducts[0] ? {
-        id: adaptedProducts[0].id,
-        name: adaptedProducts[0].name,
-        price: adaptedProducts[0].price,
-        priceType: typeof adaptedProducts[0].price,
-        imagesLength: adaptedProducts[0].images.length,
-        categoriesLength: adaptedProducts[0].categories.length
+      adaptedProduct: adaptedProduct ? {
+        id: adaptedProduct.id,
+        name: adaptedProduct.name,
+        price: adaptedProduct.price,
+        priceType: typeof adaptedProduct.price,
+        imagesLength: adaptedProduct.images.length,
+        categoriesLength: adaptedProduct.categories.length
       } : null,
       tests: {
         supabaseQuery: 'Success',

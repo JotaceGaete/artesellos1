@@ -3,9 +3,9 @@ export default async function TestConnection() {
   let connectionResult = {
     envVars: false,
     fetchAttempt: false,
-    data: null,
-    error: null,
-    details: {}
+    data: null as any,
+    error: null as string | null,
+    details: {} as Record<string, any>
   };
 
   // 1. Verificar variables de entorno

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getProducts, getCategories } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
+import type { Product as ProductType } from '@/types/product';
 
 interface CategoryPageProps {
   params: {
@@ -45,7 +46,7 @@ interface Category {
 }
 
 export default function CategoryPage({ params }: CategoryPageProps) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductType[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,36 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   useEffect(() => {
     loadCategoryAndProducts();
   }, [currentPage]);
+
+  // Función para convertir productos de WooCommerce al formato esperado por ProductCard
+  const convertWooCommerceToProductType = (wooProduct: Product): ProductType => {
+    return {
+      id: wooProduct.id,
+      name: wooProduct.name,
+      slug: wooProduct.slug,
+      description: wooProduct.description,
+      short_description: wooProduct.short_description,
+      price: wooProduct.price,
+      regular_price: wooProduct.regular_price,
+      sale_price: wooProduct.sale_price,
+      on_sale: wooProduct.on_sale,
+      images: wooProduct.images,
+      categories: wooProduct.categories,
+      attributes: [],
+      stock_status: wooProduct.stock_status,
+      stock_quantity: null,
+      weight: '',
+      dimensions: {
+        length: '',
+        width: '',
+        height: ''
+      },
+      tags: [],
+      featured: wooProduct.featured,
+      date_created: new Date().toISOString(),
+      date_modified: new Date().toISOString(),
+    };
+  };
 
   const loadCategoryAndProducts = async () => {
     try {
@@ -82,7 +113,8 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       }
 
       const result = await getProducts(filters);
-      setProducts(result.products || []);
+      const convertedProducts = (result.products || []).map(convertWooCommerceToProductType);
+      setProducts(convertedProducts);
       setTotalPages(Math.ceil((result.products || []).length / productsPerPage));
 
     } catch (error) {

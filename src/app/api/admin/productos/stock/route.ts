@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseAdmin()
 
     // Obtener producto
-    const query = supabase.from('products').select('id, stock_quantity').single()
+    const query = (supabase as any).from('products').select('id, stock_quantity').single()
     const { data: prod, error: qErr } = product_id
       ? await query.eq('id', product_id)
       : await query.eq('slug', slug)
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const newStock = typeof set === 'number' ? Math.max(0, Math.floor(set)) : Math.max(0, Math.floor((prod.stock_quantity ?? 0) + Number(delta)))
 
-    const { error: uErr, data } = await supabase
+    const { error: uErr, data } = await (supabase as any)
       .from('products')
       .update({ stock_quantity: newStock, stock_status: newStock > 0 ? 'instock' : 'outofstock' })
       .eq('id', prod.id)

@@ -3,18 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabaseUtils } from '@/lib/supabase';
+import { Database } from '@/types/database';
 
-interface Order {
-  id: string;
-  customer_email: string;
-  customer_name: string;
-  customer_phone: string;
-  status: string;
-  total: number;
-  created_at: string;
-  shipping_address: any;
-  order_items?: any[];
-}
+type Order = Database['public']['Tables']['orders']['Row'];
 
 interface OrderConfirmationPageProps {
   params: {
@@ -161,16 +152,16 @@ export default function OrderConfirmationPage({ params }: OrderConfirmationPageP
                 Dirección de Envío
               </h3>
               <div className="space-y-1 text-sm text-gray-600">
-                <p>{order.shipping_address?.address_1}</p>
-                {order.shipping_address?.address_2 && (
-                  <p>{order.shipping_address.address_2}</p>
+                <p>{(order.shipping_address as any)?.address_1}</p>
+                {(order.shipping_address as any)?.address_2 && (
+                  <p>{(order.shipping_address as any).address_2}</p>
                 )}
                 <p>
-                  {order.shipping_address?.city}, {order.shipping_address?.state}
+                  {(order.shipping_address as any)?.city}, {(order.shipping_address as any)?.state}
                 </p>
-                <p>{order.shipping_address?.country}</p>
-                {order.shipping_address?.postcode && (
-                  <p>Código Postal: {order.shipping_address.postcode}</p>
+                <p>{(order.shipping_address as any)?.country}</p>
+                {(order.shipping_address as any)?.postcode && (
+                  <p>Código Postal: {(order.shipping_address as any).postcode}</p>
                 )}
               </div>
             </div>

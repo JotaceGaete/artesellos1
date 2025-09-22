@@ -1,39 +1,62 @@
-import { supabaseServerUtils } from '@/lib/supabaseUtils';
-import Image from 'next/image';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-export default async function MiProductoPage() {
-  let producto = null;
-  let error = null;
+export default function MiProductoPage() {
+  const [producto, setProducto] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  try {
-    console.log('🚀 Cargando TU producto real desde Supabase...');
-    const supabaseProducts = await supabaseServerUtils.getProducts();
-    
-    if (supabaseProducts && supabaseProducts.length > 0) {
-      const realProduct = supabaseProducts[0]; // Tu producto "Shiny S-722"
-      
-      // Convertir a formato simple para mostrar
-      producto = {
-        id: realProduct.id,
-        name: realProduct.name,
-        slug: realProduct.slug,
-        description: realProduct.description,
-        short_description: realProduct.short_description,
-        price: Math.round(realProduct.price),
-        images: realProduct.images,
-        stock_quantity: realProduct.stock_quantity,
-        featured: realProduct.featured,
-        categories: realProduct.categories,
-        created_at: realProduct.created_at
-      };
-      
-      console.log(`✅ ¡Tu producto cargado: ${producto.name}!`);
-    }
-  } catch (e: any) {
-    error = e.message;
-    console.error('❌ Error:', e);
-  }
+  useEffect(() => {
+    const loadProduct = async () => {
+      try {
+        console.log('🚀 Cargando TU producto real desde Supabase...');
+        
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        
+        const { data: supabaseProducts, error: fetchError } = await supabase
+          .from('products')
+          .select('*')
+          .limit(1);
+        
+        if (fetchError) throw fetchError;
+        
+        if (supabaseProducts && supabaseProducts.length > 0) {
+          const realProduct = supabaseProducts[0]; // Tu producto "Shiny S-722"
+          
+          // Convertir a formato simple para mostrar
+          const productData = {
+            id: realProduct.id,
+            name: realProduct.name,
+            slug: realProduct.slug,
+            description: realProduct.description,
+            short_description: realProduct.short_description,
+            price: Math.round(realProduct.price),
+            images: realProduct.images,
+            stock_quantity: realProduct.stock_quantity,
+            featured: realProduct.featured,
+            categories: realProduct.categories,
+            created_at: realProduct.created_at
+          };
+          
+          setProducto(productData);
+          console.log(`✅ ¡Tu producto cargado: ${productData.name}!`);
+        }
+      } catch (e: any) {
+        setError(e.message);
+        console.error('❌ Error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -49,6 +72,15 @@ export default async function MiProductoPage() {
           </p>
         </div>
 
+        {/* Loading */}
+        {loading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center mb-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 className="text-lg font-semibold text-blue-900 mb-2">Cargando tu producto...</h3>
+            <p className="text-blue-700">Obteniendo datos desde Supabase</p>
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
@@ -58,7 +90,7 @@ export default async function MiProductoPage() {
         )}
 
         {/* Tu Producto */}
-        {producto ? (
+        {!loading && producto ? (
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="md:flex">
               {/* Imagen */}
@@ -160,7 +192,7 @@ export default async function MiProductoPage() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : !loading && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
             <div className="text-6xl mb-4">📦</div>
             <h3 className="text-xl font-semibold text-yellow-900 mb-2">

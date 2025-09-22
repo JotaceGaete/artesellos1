@@ -202,7 +202,7 @@ export const supabaseUtils = {
 
   // Pedidos
   async createOrder(orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('orders')
       .insert([orderData])
       .select()
@@ -242,7 +242,7 @@ export const supabaseUtils = {
 
   // Diseños personalizados
   async createCustomDesign(designData: Omit<CustomDesign, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('custom_designs')
       .insert([designData])
       .select()
@@ -254,7 +254,7 @@ export const supabaseUtils = {
 
   // Solicitudes de cotización
   async createQuoteRequest(quoteData: Omit<QuoteRequest, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('quote_requests')
       .insert([quoteData])
       .select()
@@ -266,7 +266,7 @@ export const supabaseUtils = {
 
   // Registro de comercios
   async createWholesaleRegistration(registrationData: Omit<WholesaleRegistration, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('wholesale_registrations')
       .insert([registrationData])
       .select()
@@ -278,7 +278,7 @@ export const supabaseUtils = {
 
   // Mensajes de contacto
   async createContactMessage(messageData: Omit<ContactMessage, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('contact_messages')
       .insert([messageData])
       .select()

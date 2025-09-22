@@ -97,7 +97,7 @@ export default function FavoritosPage() {
 
               {/* Botón de quitar de favoritos */}
               <button
-                onClick={() => handleRemoveFromFavorites(product.id)}
+                onClick={() => handleRemoveFromFavorites(product.id.toString())}
                 className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors shadow-sm"
                 title="Quitar de favoritos"
               >

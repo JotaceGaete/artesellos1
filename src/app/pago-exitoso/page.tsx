@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircleIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 
-export default function PagoExitosoPage() {
+function PagoExitosoContent() {
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -174,5 +174,26 @@ export default function PagoExitosoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PagoExitosoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="animate-pulse">
+              <div className="mx-auto h-16 w-16 rounded-full bg-gray-200 mb-6"></div>
+              <div className="h-8 bg-gray-200 rounded mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded mb-6"></div>
+              <div className="h-12 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <PagoExitosoContent />
+    </Suspense>
   );
 }

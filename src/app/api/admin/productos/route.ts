@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       featured: false,
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('products')
       .insert([payload])
       .select()

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Actualizar la orden
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (supabase as any)
           .from('orders')
           .update({
             status: orderStatus,

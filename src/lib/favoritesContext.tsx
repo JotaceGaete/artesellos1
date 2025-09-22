@@ -28,11 +28,11 @@ type FavoritesAction =
 function favoritesReducer(state: FavoritesState, action: FavoritesAction): FavoritesState {
   switch (action.type) {
     case 'ADD_TO_FAVORITES': {
-      if (state.itemIds.has(action.product.id)) {
+      if (state.itemIds.has(action.product.id.toString())) {
         return state; // Ya está en favoritos
       }
       const newItems = [...state.items, action.product];
-      const newItemIds = new Set([...state.itemIds, action.product.id]);
+      const newItemIds = new Set([...state.itemIds, action.product.id.toString()]);
       return {
         items: newItems,
         itemIds: newItemIds,
@@ -40,7 +40,7 @@ function favoritesReducer(state: FavoritesState, action: FavoritesAction): Favor
     }
 
     case 'REMOVE_FROM_FAVORITES': {
-      const newItems = state.items.filter(item => item.id !== action.productId);
+      const newItems = state.items.filter(item => item.id.toString() !== action.productId);
       const newItemIds = new Set(state.itemIds);
       newItemIds.delete(action.productId);
       return {
@@ -58,7 +58,7 @@ function favoritesReducer(state: FavoritesState, action: FavoritesAction): Favor
     case 'LOAD_FAVORITES':
       return {
         items: action.favorites,
-        itemIds: new Set(action.favorites.map(item => item.id)),
+        itemIds: new Set(action.favorites.map(item => item.id.toString())),
       };
 
     default:
@@ -115,8 +115,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   };
 
   const toggleFavorite = (product: Product) => {
-    if (isFavorite(product.id)) {
-      removeFromFavorites(product.id);
+    if (isFavorite(product.id.toString())) {
+      removeFromFavorites(product.id.toString());
     } else {
       addToFavorites(product);
     }

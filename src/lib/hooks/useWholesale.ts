@@ -59,23 +59,23 @@ export function useWholesale(): UseWholesaleReturn {
   const loadUserData = async (userId: string) => {
     try {
       // Obtener perfil con role
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
         .select('role')
         .eq('id', userId)
         .single()
 
-      if (profileError) {
+      if (profileError || !profile) {
         console.error('Error loading profile:', profileError)
         return
       }
 
-      const role = profile?.role || 'CLIENTE'
+      const role = profile.role || 'CLIENTE'
       setUserRole(role)
 
       // Si es comercio, obtener cuenta mayorista
       if (role === 'COMERCIO') {
-        const { data: account, error: accountError } = await supabase
+        const { data: account, error: accountError } = await (supabase as any)
           .from('wholesale_accounts')
           .select('*')
           .eq('user_id', userId)

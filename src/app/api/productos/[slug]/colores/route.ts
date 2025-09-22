@@ -9,7 +9,7 @@ export async function GET(
     const { slug } = await context.params
     const supabase = createSupabaseAdmin()
 
-    const { data: product, error: pErr } = await supabase
+    const { data: product, error: pErr } = await (supabase as any)
       .from('products')
       .select('id')
       .eq('slug', slug)
@@ -18,7 +18,7 @@ export async function GET(
     if (pErr) return NextResponse.json({ message: pErr.message }, { status: 500 })
     if (!product) return NextResponse.json({ items: [] })
 
-    const { data: colors, error: cErr } = await supabase
+    const { data: colors, error: cErr } = await (supabase as any)
       .from('product_colors')
       .select('*')
       .eq('product_id', product.id)

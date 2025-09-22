@@ -43,7 +43,7 @@ export async function createContactMessage(formData: FormData): Promise<ContactR
     const supabase = await createSupabaseServer();
 
     // Guardar mensaje en base de datos
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('contact_messages')
       .insert({
         name: name.trim(),
@@ -91,7 +91,7 @@ export async function getContactMessages(page: number = 1, limit: number = 20) {
       return { success: false, error: 'No autorizado' };
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await (supabase as any)
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -103,7 +103,7 @@ export async function getContactMessages(page: number = 1, limit: number = 20) {
 
     const offset = (page - 1) * limit;
 
-    const { data: messages, error, count } = await supabase
+    const { data: messages, error, count } = await (supabase as any)
       .from('contact_messages')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -141,7 +141,7 @@ export async function getContactMessage(id: number) {
       return { success: false, error: 'No autorizado' };
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await (supabase as any)
       .from('profiles')
       .select('role')
       .eq('id', user.id)
