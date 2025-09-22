@@ -36,10 +36,14 @@ async function getSlides() {
     });
     
     const data = await res.json();
-    console.log('📊 Respuesta de API slider:', { success: data.success, itemsCount: data.items?.length || 0 });
+    console.log('📊 Respuesta de API slider:', { 
+      success: data.success, 
+      itemsCount: data.items?.length || 0,
+      error: data.error 
+    });
     
     if (!res.ok || !data.success) {
-      console.log('⚠️ API falló, usando slides por defecto');
+      console.log('⚠️ API falló, usando slides por defecto. Error:', data.error);
       return carouselSlides;
     }
     
@@ -71,11 +75,20 @@ export default async function Home() {
   const featuredProducts = realProducts.filter((p: any) => p.featured).slice(0, 4);
   const products = realProducts.slice(0, 8);
 
+  // Obtener slides
+  const slides = await getSlides();
+
   return (
     <div>
+      {/* Debug info - temporal */}
+      <div className="bg-yellow-100 p-4 text-sm">
+        <strong>Debug:</strong> Slides cargados: {slides.length} | 
+        Fuente: {slides.length > 0 && slides[0].title === 'Artesellos' ? 'Supabase' : 'Fallback'}
+      </div>
+
       {/* Carousel Hero Section */}
       <Carousel 
-        slides={await getSlides()} 
+        slides={slides} 
         autoplayInterval={6000}
       />
 
