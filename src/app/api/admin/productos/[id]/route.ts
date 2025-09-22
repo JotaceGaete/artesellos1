@@ -95,7 +95,7 @@ export async function PUT(
 
     // Actualizar el producto
     const { data: product, error } = await supabase
-      .from<'products'>('products')
+      .from('products')
       .update(payload)
       .eq('id', id)
       .select()
