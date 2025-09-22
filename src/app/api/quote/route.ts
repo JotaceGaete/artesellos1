@@ -1,9 +1,6 @@
-// src/app/api/quote/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
+export const runtime = 'edge';
 
-// Exporta solamente el runtime de Node.js, ya que nodemailer lo requiere.
-export const runtime = 'nodejs';
+import { NextRequest, NextResponse } from 'next/server';
 import { emailTemplates } from '@/lib/email';
 import { supabaseUtils } from '@/lib/supabase';
 
@@ -31,29 +28,13 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     });
 
-    // Enviar email usando nodemailer
-    const adminEmail = process.env.CONTACT_EMAIL || 'jotacegaete@gmail.com';
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+    // Email functionality temporarily disabled for Edge Runtime compatibility
+    // TODO: Implement email sending using a service compatible with Edge Runtime
+    console.log('📧 Quote request received (email sending disabled for Edge Runtime):', {
+      customer_name: data.customer_name,
+      customer_email: data.customer_email,
+      quantity: data.quantity
     });
-
-    const emailTemplate = emailTemplates.quoteRequest(data);
-
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: adminEmail,
-      subject: emailTemplate.subject,
-      html: emailTemplate.html,
-    };
-
-    await transporter.sendMail(mailOptions);
 
     return NextResponse.json({
       success: true,
