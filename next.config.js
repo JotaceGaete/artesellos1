@@ -4,9 +4,7 @@ const nextConfig = {
     // Optimizaciones para reducir el bundle size
     optimizePackageImports: ['@supabase/supabase-js', 'lucide-react'],
   },
-  // Configuración para Cloudflare Pages
-  output: 'export',
-  trailingSlash: true,
+  // Configuración para Cloudflare Pages (SIN output: export)
   images: {
     unoptimized: true,
   },
