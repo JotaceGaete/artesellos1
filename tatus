@@ -1,0 +1,3 @@
+[33m2bae7fd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add Edge Runtime to main page (index route) - final fix for Cloudflare Pages compatibility
+[33m0f46b7d[m Fix Edge Runtime compatibility by removing nodemailer dependencies and adding edge runtime to all routes
+[33m13f7479[m Fix Node.js runtime for routes using nodemailer (quote, wholesale, custom-design)
