@@ -5,7 +5,7 @@ import ProductGrid from '@/components/ProductGrid';
 import ProductCarousel from '@/components/ProductCarousel';
 import Carousel from '@/components/Carousel';
 import Categorias from '@/components/Categorias';
-// Slides ahora se obtienen desde Supabase vía API admin pública
+// Slides ahora se obtienen desde Supabase vía API pública
 import { headers } from 'next/headers';
 import { carouselSlides } from '@/lib/carouselData';
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
@@ -24,11 +24,25 @@ async function getSlides() {
     const host = hdrs.get('x-forwarded-host') || hdrs.get('host');
     const proto = hdrs.get('x-forwarded-proto') || 'http';
     const base = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || '');
-    const url = `${base}/api/admin/slider`;
+    const url = `${base}/api/slider`; // Usar la nueva API pública
 
-    const res = await fetch(url, { cache: 'no-store' })
-    const data = await res.json()
-    if (!res.ok) return []
+    console.log('🔍 Intentando cargar slides desde:', url);
+    
+    const res = await fetch(url, { 
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const data = await res.json();
+    console.log('📊 Respuesta de API slider:', { success: data.success, itemsCount: data.items?.length || 0 });
+    
+    if (!res.ok || !data.success) {
+      console.log('⚠️ API falló, usando slides por defecto');
+      return carouselSlides;
+    }
+    
     const apiSlides = (data.items || []).map((s: any, i: number) => ({
       id: i + 1,
       title: s.title,
@@ -39,11 +53,15 @@ async function getSlides() {
       backgroundColor: s.background_color,
       textColor: s.text_color,
       image: s.image_url,
-    }))
-    return apiSlides.length > 0 ? apiSlides : carouselSlides
-  } catch {
+    }));
+    
+    console.log('✅ Slides cargados desde Supabase:', apiSlides.length);
+    return apiSlides.length > 0 ? apiSlides : carouselSlides;
+    
+  } catch (error) {
+    console.error('❌ Error al cargar slides:', error);
     // Fallback a contenido por defecto si falla el API
-    return carouselSlides
+    return carouselSlides;
   }
 }
 
@@ -99,45 +117,28 @@ export default async function Home() {
       {/* All Products Section */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-12">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Todos Nuestros Productos
-              </h2>
-              <p className="text-lg text-gray-600">
-                Explora nuestra colección completa de timbres personalizados
-              </p>
-            </div>
-            <Link
-              href="/productos"
-              className="text-indigo-600 hover:text-indigo-800 font-semibold"
-            >
-              Ver todos →
-            </Link>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Todos los Productos
+            </h2>
+            <p className="text-lg text-gray-600">
+              Explora nuestra colección completa de timbres personalizados
+            </p>
           </div>
 
           <ProductGrid
             products={products}
             emptyMessage="No hay productos disponibles en este momento."
           />
-        </div>
-      </section>
 
-      {/* Call to Action Section */}
-      <section className="py-16 bg-indigo-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            ¿Tienes una idea especial?
-          </h2>
-          <p className="text-xl mb-8 text-indigo-100">
-            Podemos crear un diseño personalizado único para ti
-          </p>
-          <Link
-            href="/contacto"
-            className="bg-white text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-block"
-          >
-            Solicitar Diseño Personalizado
-          </Link>
+          <div className="text-center mt-12">
+            <Link
+              href="/productos"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200"
+            >
+              Ver Todos los Productos
+            </Link>
+          </div>
         </div>
       </section>
     </div>
