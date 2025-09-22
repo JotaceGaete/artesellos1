@@ -16,14 +16,29 @@ function authorizeOrBypass() {
 }
 
 export async function GET() {
-  const supabase = createSupabaseAdmin()
-  const { data, error } = await supabase
-    .from('slider_slides')
-    .select('*')
-    .eq('active', true)
-    .order('slide_order', { ascending: true })
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 })
-  return NextResponse.json({ items: data })
+  try {
+    console.log('🔍 Intentando cargar slides desde Supabase...')
+    
+    const supabase = createSupabaseAdmin()
+    console.log('✅ Cliente Supabase creado')
+    
+    const { data, error } = await supabase
+      .from('slider_slides')
+      .select('*')
+      .eq('active', true)
+      .order('slide_order', { ascending: true })
+    
+    if (error) {
+      console.error('❌ Error en consulta Supabase:', error)
+      return NextResponse.json({ message: error.message }, { status: 500 })
+    }
+    
+    console.log('✅ Slides obtenidos:', data?.length || 0, 'slides')
+    return NextResponse.json({ items: data || [] })
+  } catch (err: any) {
+    console.error('❌ Error general en GET slides:', err)
+    return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -82,5 +97,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: e?.message || 'Error interno' }, { status: 500 })
   }
 }
-
-
