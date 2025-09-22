@@ -24,10 +24,8 @@ async function getSlides() {
     const host = hdrs.get('x-forwarded-host') || hdrs.get('host');
     const proto = hdrs.get('x-forwarded-proto') || 'http';
     const base = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || '');
-    const url = `${base}/api/slider`; // Usar la nueva API pública
+    const url = `${base}/api/slider`;
 
-    console.log('🔍 Intentando cargar slides desde:', url);
-    
     const res = await fetch(url, { 
       cache: 'no-store',
       headers: {
@@ -36,14 +34,8 @@ async function getSlides() {
     });
     
     const data = await res.json();
-    console.log('📊 Respuesta de API slider:', { 
-      success: data.success, 
-      itemsCount: data.items?.length || 0,
-      error: data.error 
-    });
     
     if (!res.ok || !data.success) {
-      console.log('⚠️ API falló, usando slides por defecto. Error:', data.error);
       return carouselSlides;
     }
     
@@ -59,33 +51,21 @@ async function getSlides() {
       image: s.image_url,
     }));
     
-    console.log('✅ Slides cargados desde Supabase:', apiSlides.length);
     return apiSlides.length > 0 ? apiSlides : carouselSlides;
     
   } catch (error) {
-    console.error('❌ Error al cargar slides:', error);
-    // Fallback a contenido por defecto si falla el API
     return carouselSlides;
   }
 }
 
 export default async function Home() {
-  // 🚀 Usar SOLO datos REALES desde Supabase (sin fallback a mocks)
   const realProducts = await getMyRealProducts();
   const featuredProducts = realProducts.filter((p: any) => p.featured).slice(0, 4);
   const products = realProducts.slice(0, 8);
-
-  // Obtener slides
   const slides = await getSlides();
 
   return (
     <div>
-      {/* Debug info - temporal */}
-      <div className="bg-yellow-100 p-4 text-sm">
-        <strong>Debug:</strong> Slides cargados: {slides.length} | 
-        Fuente: {slides.length > 0 && slides[0].title === 'Artesellos' ? 'Supabase' : 'Fallback'}
-      </div>
-
       {/* Carousel Hero Section */}
       <Carousel 
         slides={slides} 
