@@ -28,8 +28,9 @@ export async function GET(
 
     if (cErr) return NextResponse.json({ message: cErr.message }, { status: 500 })
     return NextResponse.json({ items: colors || [] })
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Error interno' }, { status: 500 })
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : 'Error interno';
+    return NextResponse.json({ message: errorMessage }, { status: 500 })
   }
 }
 

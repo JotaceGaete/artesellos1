@@ -61,8 +61,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ init_point: initPoint, preference_id: pref.id, external_reference: orderId })
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Error creando link de pago' }, { status: 500 })
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : 'Error creando link de pago';
+    return NextResponse.json({ message: errorMessage }, { status: 500 })
   }
 }
 

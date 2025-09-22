@@ -133,13 +133,14 @@ export default function FileUploader({ wholesaleAccountId }: FileUploaderProps) 
           } : f
         ))
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Actualizar estado a error
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
         setFiles(prev => prev.map(f => 
           f.id === file.id ? { 
             ...f, 
             status: 'error', 
-            error: error.message 
+            error: errorMessage 
           } : f
         ))
       }
@@ -230,8 +231,9 @@ export default function FileUploader({ wholesaleAccountId }: FileUploaderProps) 
 
       alert('Trabajo enviado exitosamente. Te contactaremos con la cotización.')
 
-    } catch (error: any) {
-      alert(`Error: ${error.message}`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error: ${errorMessage}`)
     } finally {
       setSubmitting(false)
     }

@@ -1,3 +1,24 @@
+import type { WholesaleApplication, ContactMessage } from '@/types/api';
+
+// Interfaces para datos específicos
+interface AddressData {
+  address_1: string;
+  address_2?: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+}
+
+interface DesignData {
+  text: string;
+  shape: string;
+  size: string;
+  color: string;
+  font?: string;
+  icons?: string[];
+}
+
 // Email templates (solo las plantillas, sin la lógica de envío)
 export const emailTemplates = {
   contactMessage: (data: {
@@ -68,7 +89,7 @@ export const emailTemplates = {
     business_type: string;
     tax_id?: string;
     expected_volume: string;
-    address: any;
+    address: AddressData;
   }) => ({
     subject: `Nuevo registro de comercio mayorista - ${data.company_name}`,
     html: `
@@ -100,7 +121,7 @@ export const emailTemplates = {
   customDesign: (data: {
     customer_name: string;
     customer_email: string;
-    design_data: any;
+    design_data: DesignData;
   }) => ({
     subject: `Nuevo diseño personalizado - ${data.customer_name}`,
     html: `
@@ -172,7 +193,7 @@ export async function sendWholesaleRegistration(data: {
   business_type: string;
   tax_id?: string;
   expected_volume: string;
-  address: any;
+  address: AddressData;
 }) {
   const response = await fetch('/api/wholesale', {
     method: 'POST',
@@ -187,7 +208,7 @@ export async function sendWholesaleRegistration(data: {
 export async function sendCustomDesign(data: {
   customer_name: string;
   customer_email: string;
-  design_data: any;
+  design_data: DesignData;
 }) {
   const response = await fetch('/api/custom-design', {
     method: 'POST',

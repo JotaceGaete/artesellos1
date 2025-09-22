@@ -80,7 +80,7 @@ export async function PUT(
       )
     }
 
-    // Construir payload para actualización
+    // Actualizar el producto - usar supabase client sin tipado estricto
     const updateData = {
       name: name as string,
       slug: slug as string,
@@ -93,10 +93,9 @@ export async function PUT(
       updated_at: new Date().toISOString()
     }
 
-    // Actualizar el producto - usar any para evitar inferencia never
     const { data: product, error } = await supabase
       .from('products')
-      .update(updateData as any)
+      .update(updateData as never)
       .eq('id', id)
       .select()
       .single()

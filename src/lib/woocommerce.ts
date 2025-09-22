@@ -58,11 +58,17 @@ export class WooCommerceAPI {
       if (cat) {
         const catName = cat.name.toLowerCase();
         const catSlug = cat.slug;
-        adapted = adapted.filter(p => (p.categories || []).some((c: any) => {
+        adapted = adapted.filter(p => (p.categories || []).some((c: unknown) => {
           if (typeof c === 'string') return c.toLowerCase() === catName;
-          if (c?.name && typeof c.name === 'string') return c.name.toLowerCase() === catName;
-          if (c?.slug && typeof c.slug === 'string') return c.slug === catSlug;
-          if (typeof c?.id === 'number') return c.id === categoryId;
+          if (c && typeof c === 'object' && 'name' in c && typeof c.name === 'string') {
+            return c.name.toLowerCase() === catName;
+          }
+          if (c && typeof c === 'object' && 'slug' in c && typeof c.slug === 'string') {
+            return c.slug === catSlug;
+          }
+          if (c && typeof c === 'object' && 'id' in c && typeof c.id === 'number') {
+            return c.id === categoryId;
+          }
           return false;
         }));
       }
@@ -100,7 +106,7 @@ export class WooCommerceAPI {
   }
 
   // Simula llamada a /wp-json/wc/v3/products/categories (derivado desde productos en Supabase)
-  async getCategories(): Promise<any[]> {
+  async getCategories(): Promise<Array<{id: number, name: string, slug: string}>> {
     // Devolvemos set fijo solicitado
     return FIXED_CATEGORIES;
   }

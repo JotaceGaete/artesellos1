@@ -250,8 +250,9 @@ export default function CheckoutPage() {
 
       // 4) Redirigir al link de pago de Mercado Pago
       window.location.href = prefData.init_point
-    } catch (e: any) {
-      alert(e?.message || 'No se pudo iniciar el pago')
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'No se pudo iniciar el pago';
+      alert(errorMessage)
     } finally {
       setIsProcessing(false)
     }

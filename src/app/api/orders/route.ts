@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
       const mockId = `mock_${Date.now()}`
       return NextResponse.json({ ok: true, order: { id: mockId }, warning: 'Order saved as mock (DB unavailable)' })
     }
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, message: e?.message || 'Error creating order' }, { status: 500 })
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : 'Error creating order';
+    return NextResponse.json({ ok: false, message: errorMessage }, { status: 500 })
   }
 }
 

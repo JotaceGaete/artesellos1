@@ -13,7 +13,7 @@ export default function AdjustStock({ id, slug, current }: { id?: string, slug?:
     setLoading(true)
     setError(null)
     try {
-      const body: any = { }
+      const body: Record<string, unknown> = { }
       if (id) body.product_id = id
       if (slug) body.slug = slug
       if (mode === 'delta') body.delta = Number(value)
@@ -29,8 +29,9 @@ export default function AdjustStock({ id, slug, current }: { id?: string, slug?:
         throw new Error(data?.message || 'Error ajustando stock')
       }
       window.location.reload()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
