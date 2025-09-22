@@ -82,14 +82,14 @@ export async function PUT(
 
     // Construir payload tipado explícitamente para evitar `never`
     const payload: Database['public']['Tables']['products']['Update'] = {
-      name,
-      slug,
-      price: Number(price),
-      description,
-      short_description,
-      images: (images as unknown as Json),
+      name: name as string,
+      slug: slug as string,
+      price: Number(price) as number,
+      description: description as string,
+      short_description: short_description as string,
+      images: images as Json,
       stock_quantity: Number(stock_quantity) || 0,
-      stock_status,
+      stock_status: stock_status as 'instock' | 'outofstock' | 'onbackorder',
       updated_at: new Date().toISOString()
     }
 
