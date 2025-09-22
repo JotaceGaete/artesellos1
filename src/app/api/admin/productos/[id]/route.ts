@@ -80,8 +80,8 @@ export async function PUT(
       )
     }
 
-    // Construir payload tipado explícitamente para evitar `never`
-    const payload: Database['public']['Tables']['products']['Update'] = {
+    // Construir payload para actualización
+    const updateData = {
       name: name as string,
       slug: slug as string,
       price: Number(price) as number,
@@ -93,10 +93,10 @@ export async function PUT(
       updated_at: new Date().toISOString()
     }
 
-    // Actualizar el producto
+    // Actualizar el producto - usar any para evitar inferencia never
     const { data: product, error } = await supabase
       .from('products')
-      .update(payload)
+      .update(updateData as any)
       .eq('id', id)
       .select()
       .single()
