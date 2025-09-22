@@ -1,9 +1,11 @@
-export const runtime = 'edge';
-
+// src/app/api/contact/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { emailTemplates } from '@/lib/email';
 import { supabaseUtils } from '@/lib/supabase';
+
+// Exporta solamente el runtime de Node.js, ya que nodemailer lo requiere.
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
