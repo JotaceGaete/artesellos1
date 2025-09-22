@@ -95,9 +95,8 @@ export async function PUT(
 
     // Actualizar el producto
     const { data: product, error } = await supabase
-      .from('products')
-      // Forzamos el tipo aquí para evitar el problema de inferencia 'never' en algunos entornos
-      .update(payload as any)
+      .from<'products'>('products')
+      .update(payload)
       .eq('id', id)
       .select()
       .single()
