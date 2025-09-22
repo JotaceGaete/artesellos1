@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import Link from 'next/link';
 import ProductGrid from '@/components/ProductGrid';
 import ProductCarousel from '@/components/ProductCarousel';
