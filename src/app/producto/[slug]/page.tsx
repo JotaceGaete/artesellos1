@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { notFound } from 'next/navigation';
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
 import { adaptSupabaseProduct } from '@/lib/productAdapter';

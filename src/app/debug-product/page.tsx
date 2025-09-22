@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
 import Link from 'next/link';
 

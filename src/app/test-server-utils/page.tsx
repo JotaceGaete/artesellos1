@@ -1,4 +1,6 @@
 // Test específico del supabaseServerUtils
+export const runtime = 'edge';
+
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
 
 export default async function TestServerUtils() {
