@@ -96,7 +96,7 @@ export async function PUT(
     // Usar supabase client con tipado más permisivo
     const { data: product, error } = await (supabase as any)
       .from('products')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', id)
       .select()
       .single()
