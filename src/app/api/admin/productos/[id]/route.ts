@@ -131,14 +131,14 @@ export async function DELETE(
     const { id } = await params;
     const supabase = createSupabaseAdmin()
 
-    // Verificar que el producto existe
-    const { data: product, error: fetchError } = await supabase
+    // Verificar que el producto existe y obtener su nombre
+    const { data: productToDelete, error: fetchError } = await supabase
       .from('products')
       .select('id, name')
       .eq('id', id)
       .single()
 
-    if (fetchError || !product) {
+    if (fetchError || !productToDelete) {
       return NextResponse.json(
         { error: 'Producto no encontrado' },
         { status: 404 }
@@ -167,7 +167,7 @@ export async function DELETE(
 
     return NextResponse.json({ 
       success: true,
-      message: `Producto "${product.name}" eliminado exitosamente` 
+      message: `Producto "${productToDelete.name}" eliminado exitosamente` 
     })
   } catch (error) {
     console.error('Error in DELETE /api/admin/productos/[id]:', error)
