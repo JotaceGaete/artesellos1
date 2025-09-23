@@ -6,9 +6,9 @@ import Link from "next/link";
 const STATIC_BANNERS = [
   { id: 1, title: "Banner 1", href: "/", image: "https://media.artesellos.cl/Banners/Banner1.webp" },
   { id: 2, title: "Banner 2", href: "/", image: "https://media.artesellos.cl/Banners/banner2.webp" },
-  { id: 3, title: "Banner 3", href: "/" },
-  { id: 4, title: "Banner 4", href: "/" },
-  { id: 5, title: "Banner 5", href: "/" },
+  { id: 3, title: "Bolsillo", href: "/", image: "https://media.artesellos.cl/Banners/Bolsillo_banner.png" },
+  { id: 4, title: "Automático", href: "/", image: "https://media.artesellos.cl/Banners/automatico_banner.png" },
+  { id: 5, title: "Fechadores", href: "/", image: "https://media.artesellos.cl/Banners/fechadores-banner-categoria.png" },
 ];
 
 export default function Categorias() {
