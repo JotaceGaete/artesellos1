@@ -4,8 +4,8 @@ import Link from "next/link";
 
 // 5 banners estáticos cuadrados - tú colocarás el contenido
 const STATIC_BANNERS = [
-  { id: 1, title: "Banner 1", href: "/" },
-  { id: 2, title: "Banner 2", href: "/" },
+  { id: 1, title: "Banner 1", href: "/", image: "https://media.artesellos.cl/Banners/Banner1.webp" },
+  { id: 2, title: "Banner 2", href: "/", image: "https://media.artesellos.cl/Banners/banner2.webp" },
   { id: 3, title: "Banner 3", href: "/" },
   { id: 4, title: "Banner 4", href: "/" },
   { id: 5, title: "Banner 5", href: "/" },
@@ -24,9 +24,17 @@ export default function Categorias() {
           >
             {/* Zona gris donde tú colocarás el contenido */}
             <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-500 text-sm font-medium">
-                {banner.title}
-              </span>
+              {banner.image ? (
+                <img 
+                  src={banner.image} 
+                  alt={banner.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-gray-500 text-sm font-medium">
+                  {banner.title}
+                </span>
+              )}
             </div>
             {/* Overlay para hover */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
