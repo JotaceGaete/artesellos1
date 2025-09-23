@@ -50,14 +50,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const secondaryImage = safeUrl(product.images?.[1]?.src || (product as any).images?.[1]) || primaryImage;
   const currentImage = isHovered && product.images.length > 1 ? secondaryImage : primaryImage;
   
-  const isOnSale = product.on_sale && product.sale_price;
-
-  // Helper function to calculate discount percentage
-  const calculateDiscountPercentage = (regularPrice: string, salePrice: string): number => {
-    const regular = parseFloat(regularPrice);
-    const sale = parseFloat(salePrice);
-    return Math.round((1 - sale / regular) * 100);
-  };
+  // Descuentos deshabilitados - solo mostrar precio actual
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation to product page
@@ -123,11 +116,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           <div className="absolute bottom-4 left-6 w-1 h-1 bg-gray-400 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-600 group-hover:animate-ping"></div>
 
           {/* Badges compactos */}
-          {isOnSale && (
-            <span className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-md bg-red-600 text-white font-semibold">Oferta</span>
-          )}
           {product.featured && (
-            <span className="absolute top-2 left-2 ml-${isOnSale ? '12' : '0'} text-[10px] px-2 py-0.5 rounded-md bg-indigo-600 text-white font-semibold">Destacado</span>
+            <span className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-md bg-indigo-600 text-white font-semibold">Destacado</span>
           )}
 
           {/* Favoritos eliminado en MVP */}
@@ -191,7 +181,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           <div className="flex items-center justify-between mb-1">
             <WholesalePrice 
               productId={product.id.toString()}
-              retailPrice={parseFloat(isOnSale ? product.sale_price : product.price)}
+              retailPrice={parseFloat(product.price)}
               className="flex-1"
               showLabel={false}
             />

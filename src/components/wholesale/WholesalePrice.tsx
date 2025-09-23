@@ -49,23 +49,13 @@ export default function WholesalePrice({
             )}
           </div>
           
-          {pricing.discount_percentage && (
-            <div className="flex items-center space-x-2 mt-1">
-              <span className="text-lg text-gray-500 line-through">
-                {formatPrice(pricing.retail_price)}
-              </span>
-              <div className="flex items-center space-x-1 bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs font-semibold">
-                <TrendingDown className="w-3 h-3" />
-                <span>-{pricing.discount_percentage}%</span>
-              </div>
-            </div>
-          )}
+          {/* Descuentos deshabilitados - solo mostrar precio final */}
         </div>
       </div>
 
       {showLabel && pricing.level && (
         <p className="text-sm text-gray-600 mt-2">
-          Tarifa: Nivel {pricing.level} ({pricing.discount_percentage}% descuento)
+          Tarifa: Nivel {pricing.level}
         </p>
       )}
     </div>

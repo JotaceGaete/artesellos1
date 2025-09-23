@@ -212,23 +212,9 @@ Total: ${formatPrice(totalPrice)}
 
           {/* Price */}
           <div className="flex items-center space-x-4">
-            {product.on_sale && product.sale_price ? (
-              <>
-                <span className="text-3xl font-bold text-gray-900">
-                  {formatPrice(parseFloat(product.sale_price) + inkSurcharge)}
-                </span>
-                <span className="text-xl text-gray-500 line-through">
-                  {formatPrice(parseFloat(product.regular_price))}
-                </span>
-                <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-semibold">
-                  -{Math.round((1 - parseFloat(product.sale_price) / parseFloat(product.regular_price)) * 100)}%
-                </span>
-              </>
-            ) : (
-              <span className="text-3xl font-bold text-gray-900">
-                {formatPrice(parseFloat(product.price) + inkSurcharge)}
-              </span>
-            )}
+            <span className="text-3xl font-bold text-gray-900">
+              {formatPrice(parseFloat(product.price) + inkSurcharge)}
+            </span>
           </div>
 
           {/* Stock Status */}
