@@ -4,26 +4,30 @@ export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { supabaseUtils } from '@/lib/supabase';
 import { Database } from '@/types/database';
 
 type Order = Database['public']['Tables']['orders']['Row'];
 
-interface OrderConfirmationPageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
+export default function OrderConfirmationPage() {
+  const params = useParams();
+  const orderId = (params?.id as string) || '';
+  
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchOrder = async () => {
+      if (!orderId) {
+        setError('ID de pedido no válido');
+        setLoading(false);
+        return;
+      }
+
       try {
-        const orderData = await supabaseUtils.getOrderById(params.id);
+        const orderData = await supabaseUtils.getOrderById(orderId);
         if (orderData) {
           setOrder(orderData);
         } else {
@@ -38,7 +42,7 @@ export default function OrderConfirmationPage({ params }: OrderConfirmationPageP
     };
 
     fetchOrder();
-  }, [params.id]);
+  }, [orderId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CL', {

@@ -47,10 +47,10 @@ export default function FavoritosPage() {
               Explorar Productos
             </Link>
             <Link
-              href="/diseno-personalizado"
+              href="/contacto"
               className="border border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors"
             >
-              Diseñar Personalizado
+              Contactar
             </Link>
           </div>
         </div>

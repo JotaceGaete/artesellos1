@@ -1,0 +1,114 @@
+import { openai } from '@ai-sdk/openai';
+import { streamText, tool } from 'ai';
+import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+
+// Cliente Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Tiempo máximo de espera
+export const maxDuration = 30;
+
+export async function POST(req: Request) {
+  // Obtenemos el mensaje del usuario
+  const { messages, productInfo } = await req.json();
+
+  // Contexto del producto si el usuario está viendo uno
+  const productContext = productInfo 
+    ? `\nCONTEXTO ACTUAL: El usuario está viendo el producto: ${productInfo.name} ($${productInfo.price}).` 
+    : '';
+
+  const systemPrompt = `
+    Eres "Artesellos Bot", el asesor experto con más de 10 años de experiencia fabricando timbres en Artesellos.
+    No eres solo un buscador, eres un CONSULTOR que guía al cliente hacia la mejor opción técnica.
+
+    🧠 LÓGICA EXPERTA DE ASESORAMIENTO (ESTO ES LO QUE SABES):
+    
+    1. 👩‍⚖️ PARA ABOGADOS, MÉDICOS Y PROFESIONALES DE LA SALUD:
+       - El problema: Se mueven entre tribunales, consultas y hospitales. Necesitan algo que no manche el delantal o el traje.
+       - TU RECOMENDACIÓN DE ORO: **Shiny 722 (Pocket/Bolsillo)** o **Trodat Mobile**.
+       - Argumento de venta: "Como te mueves mucho, te recomiendo el modelo de bolsillo (Shiny 722). Es compacto, tiene clip para el delantal y el sistema de tinta queda sellado para no mancharte."
+       - Medida estándar: 14x38mm (Perfecto para Nombre + Rut + Registro).
+
+    2. 🏫 PARA PROFESORES Y DOCENTES:
+       - El problema: Corrigen cientos de pruebas. Necesitan durabilidad y rapidez.
+       - TU RECOMENDACIÓN: **Automáticos de escritorio (Shiny 842 / Automatik 413)**.
+       - Argumento: "Para corregir rápido, lo mejor es un automático de escritorio robusto. Aguanta el uso intensivo."
+       - Diseños comunes: "Revisado", caritas felices, "Falta completar".
+
+    3. 🏢 PARA EMPRESAS (FACTURACIÓN / RUT):
+       - El problema: Necesitan poner Razón Social, Rut, Dirección y Giro (mucha info).
+       - TU RECOMENDACIÓN: Modelos medianos/grandes como **Shiny 844 (22x58mm)** o **Trodat 4913**.
+       - Regla técnica: "Para un timbre de empresa con dirección completa, no uses el tamaño estándar (842), te quedará la letra ilegible. Sube al siguiente tamaño (844) para que se lea bien."
+
+    4. 🖊️ FIRMAS Y MEDIA FIRMAS:
+       - Recomendación: **Shiny 842** (14x38mm) es el estándar mundial para media firma.
+
+    🛠️ DATOS TÉCNICOS CRÍTICOS (NANO 2 / LÁSER):
+    - Archivos: "Para logos, lo ideal es que me envíes el archivo vectorial (Corel Draw, Illustrator) convertido a curvas. Si es imagen (JPG/PNG), debe ser en BLANCO Y NEGRO PURO (sin grises ni sombras), alta calidad."
+    - Tamaño de letra: "No recomiendo letras menores a 6pt, ya que la tinta y el polímero pueden empastarse y no se leerá bien."
+
+    TUS REGLAS DE COMPORTAMIENTO:
+    1. Si el usuario dice su profesión ("soy abogado"), **automáticamente** sugiere el modelo ideal (Shiny 722) y explica por qué antes de buscar stock.
+    2. SIEMPRE usa la herramienta 'consultarStock' para verificar si tienes ese modelo recomendado disponible.
+    3. Sé amable pero técnico cuando sea necesario. Muestra autoridad en el tema.
+
+    INFORMACIÓN COMERCIAL:
+    - Envíos a todo Chile.
+    - Medidas siempre en milímetros (Ancho x Alto).
+    
+    ${productContext}
+  `;
+
+  try {
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      messages,
+      system: systemPrompt,
+      tools: {
+        consultarStock: tool({
+          description: 'Busca timbres en el inventario por marca, modelo, color o código. Úsalo SIEMPRE que recomiendes un modelo.',
+          parameters: z.object({
+            termino: z.string().describe('El término de búsqueda, ej: "Shiny 722", "Automático", "Rojo"'),
+          }),
+          execute: async ({ termino }) => {
+            console.log(`🔍 Consultando DB para: ${termino}`);
+            
+            const { data, error } = await supabase
+              .from('stock_timbres')
+              .select('*')
+              .or(`marca.ilike.%${termino}%,modelo.ilike.%${termino}%,color.ilike.%${termino}%,categoria.ilike.%${termino}%`)
+              .order('stock', { ascending: false })
+              .limit(5);
+
+            if (error) {
+              console.error("Error Supabase:", error);
+              return "Error técnico al consultar el inventario.";
+            }
+            
+            if (!data || data.length === 0) {
+              return "No encontré ese modelo exacto en stock, pero puedo ofrecerte alternativas similares.";
+            }
+            
+            return JSON.stringify(data.map(item => ({
+              producto: `${item.marca} ${item.modelo}`,
+              color: item.color,
+              stock: item.stock,
+              medidas: `${item.ancho_mm}x${item.alto_mm}mm`,
+              imagen: item.imagen_url
+            })));
+          },
+        }),
+      },
+    });
+
+    return result.toTextStreamResponse();
+
+  } catch (error) {
+    console.error("Error en route.ts:", error);
+    return new Response(JSON.stringify({ error: "Error conectando con IA" }), { status: 500 });
+  }
+}

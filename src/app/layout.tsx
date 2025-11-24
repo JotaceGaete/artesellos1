@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import TopBanner from "@/components/TopBanner";
+import ChatInterface from "@/components/ChatInterface";
 import { CartProvider } from "@/lib/cartContext";
 import { FavoritesProvider } from "@/lib/favoritesContext";
 import { WholesaleLevelBanner } from "@/components/wholesale/WholesalePrice";
@@ -49,6 +50,9 @@ export default function RootLayout({
                 {children}
               </main>
               <Footer />
+              
+              {/* Chatbot flotante disponible en todas las páginas */}
+              <ChatInterface />
             </div>
           </FavoritesProvider>
         </CartProvider>

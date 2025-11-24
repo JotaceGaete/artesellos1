@@ -6,39 +6,47 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "pages:build": "next build && npx @cloudflare/next-on-pages@latest build",
     "preview": "npm run pages:build && wrangler pages dev",
-    "deploy": "npm run pages:build && wrangler pages deploy"
+    "deploy": "npm run pages:build && wrangler pages deploy .vercel/output/static"
   },
   "dependencies": {
+    "@ai-sdk/google": "^0.0.55",
+    "@ai-sdk/openai": "^2.0.71",
+    "@ai-sdk/react": "^2.0.99",
+    "@google/generative-ai": "^0.21.0",
     "@heroicons/react": "^2.2.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.56.1",
+    "ai": "^5.0.99",
     "lucide-react": "^0.542.0",
     "mercadopago": "^2.9.0",
-    "next": "15.5.2",
-    "nodemailer": "^7.0.5",
-    "openai": "^5.17.0",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-dropzone": "^14.3.8"
+    "next": "15.1.0",
+    "nodemailer": "^6.9.16",
+    "openai": "^4.73.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-dropzone": "^14.3.8",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20.19.17",
-    "@types/nodemailer": "^7.0.1",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/node": "^20.17.10",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "eslint": "^9",
-    "eslint-config-next": "15.5.2",
+    "eslint-config-next": "15.1.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.34.0"
+    "wrangler": "^4.50.0"
   }
 }

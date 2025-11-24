@@ -1,0 +1,652 @@
+import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
+
+// Cliente Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Cliente OpenAI directo
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Tiempo máximo de espera
+export const maxDuration = 30;
+
+// Variable global para mantener contexto del producto discutido
+let productoEnContexto = null;
+
+// Función para extraer modelo de la consulta
+function extraerModeloDeConsulta(consulta, modelosDisponibles) {
+  const consultaLower = consulta.toLowerCase();
+
+  for (const modelo of modelosDisponibles) {
+    const numeroModelo = modelo.split(' ')[1]; // Extraer el número (722, 723, etc.)
+    if (consultaLower.includes(numeroModelo) ||
+        consultaLower.includes(modelo.toLowerCase().replace('shiny ', ''))) {
+      return modelo;
+    }
+  }
+
+  return null;
+}
+
+
+
+
+
+
+
+export async function POST(req: Request) {
+  try {
+    console.log('📨 Nueva petición POST a /api/chat');
+
+    // Parsear JSON del request
+  const { messages, productInfo } = await req.json();
+
+    if (!messages || !Array.isArray(messages)) {
+      return new Response(JSON.stringify({ error: "Messages requerido" }), { status: 400 });
+    }
+
+    // Contexto del producto
+  const productContext = productInfo 
+    ? `\nCONTEXTO ACTUAL: El usuario está viendo el producto: ${productInfo.name} ($${productInfo.price}).` 
+    : '';
+
+    const systemPrompt = `Eres "Artesellos Bot", asistente especializado exclusivamente en Artesellos, tienda de timbres personalizados profesionales.
+
+    TU MISIÓN EXCLUSIVA:
+    Solo responder preguntas relacionadas con:
+    - Timbres personalizados y productos de Artesellos
+    - Stock y disponibilidad de productos
+    - Información de envío, entregas y transportes
+    - Horarios de atención y ubicación
+    - Procesos de pedido y personalización
+    - Precios, formas de pago y presupuestos
+    - Información sobre usos profesionales de timbres
+    - Especificaciones técnicas y capacidades
+    - Cómo enviar diseños y pedidos personalizados
+    - Mostrar imágenes de productos cuando estén disponibles
+    - Consultar precios de productos
+    
+    TUS REGLAS DE ORO:
+    1. Tu objetivo principal es VENDER y AYUDAR con consultas sobre timbres profesionales.
+    2. SIEMPRE que te pregunten por un producto, STOCK, disponibilidad o PRECIOS, DEBES consultar la base de datos usando la función consultarStock.
+    3. PARA PREGUNTAS SOBRE UBICACIÓN, HORARIOS O CONTACTO: Usa consultarInformacionNegocio.
+    4. PARA PREGUNTAS SOBRE ENVÍOS, TRANSPORTE O TIEMPOS DE ENTREGA: Usa consultarInformacionEnvios.
+    5. PARA PREGUNTAS SOBRE PEDIDOS PERSONALIZADOS, FORMATOS O PROCESO DE DISEÑO: Usa consultarInformacionPersonalizacion.
+    6. No reveles números exactos de stock. Solo indica si hay stock disponible o no.
+    7. Si hay stock, di "hay stock disponible" sin especificar cantidad.
+    8. Si no hay stock, ofrece alternativas o sugiere contactar para encargos especiales.
+    9. Sé discreto con la información de inventario por razones comerciales.
+    10. Cuando muestres productos disponibles, incluye TODOS los colores/variaciones disponibles del mismo modelo.
+    11. Usa la información completa que te proporcionan las herramientas sin resumirla.
+    12. Muestra imágenes de productos cuando estén disponibles y sean relevantes para la consulta.
+    13. PARA PREGUNTAS SOBRE PRECIOS: Si se pregunta por precios generales, explica que los precios varían según el modelo y personalización, y ofrece consultar modelos específicos. Si se pregunta por un modelo específico, consulta la base de datos.
+
+    INFORMACIÓN DETALLADA DEL NEGOCIO:
+
+    📍 UBICACIÓN Y CONTACTO:
+    - Dirección: [Centro de Santiago/Providencia], Santiago, Chile
+    - Teléfono: +56 9 XXXX XXXX (WhatsApp disponible)
+    - Email: contacto@artesellos.cl
+    - Horarios de atención: Lunes a Viernes 9:00-18:00, Sábados 10:00-14:00
+    - Sitio web: www.artesellos.cl
+
+    🚚 FORMAS DE ENTREGA Y TRANSPORTES:
+    - Envíos a todo Chile continental
+    - Opciones de transporte:
+      * Chilexpress (2-3 días hábiles en Santiago, 3-5 días en regiones)
+      * Starken (2-4 días hábiles)
+      * CorreosChile (3-7 días hábiles según destino)
+      * Retiro en tienda (mismo día disponible)
+    - Costos de envío: Desde $3.500 según destino y peso
+    - Envíos express disponibles con costo adicional
+
+    ⏰ TIEMPOS APROXIMADOS DE LLEGADA:
+    - Santiago y alrededores: 1-2 días hábiles
+    - Regiones centrales: 2-4 días hábiles
+    - Regiones extremas: 4-7 días hábiles
+    - Pedidos personalizados: 7-15 días hábiles adicionales
+
+    👔 USOS PROFESIONALES DE TIMBRES:
+    - Profesionales liberales (abogados, contadores, médicos)
+    - Empresas y comercios (facturas, contratos, recibos)
+    - Instituciones educativas (certificados, documentos)
+    - Gobierno y municipalidades (oficiales, sellos)
+    - Notarías y registros (documentos legales)
+    - Arquitectos e ingenieros (planos, documentos técnicos)
+
+    🎨 PEDIDOS PERSONALIZADOS Y ENVÍO DE DISEÑOS:
+    - Diseños completamente personalizados según necesidad
+    - Formatos de archivo aceptados:
+      * Vectores: .AI, .EPS, .PDF, .CDR (Corel Draw)
+      * Imágenes: .JPG, .PNG (alta resolución 300dpi mínimo)
+      * Texto plano: .DOC, .TXT, .RTF
+    - Cómo enviar diseños:
+      * Email: contacto@artesellos.cl (adjuntar archivos)
+      * WhatsApp: Enviar archivos directamente
+      * Presencial: Traer USB o archivos impresos
+    - Proceso: Consulta → Diseño → Aprobación → Fabricación → Entrega
+    - Tiempo estimado: 7-15 días hábiles
+
+    📏 ESPECIFICACIONES TÉCNICAS:
+    - Medidas disponibles: Desde 14x14mm hasta 82x82mm
+    - Número de líneas: Desde 1 hasta 12 líneas de texto
+    - Tipos de tinta: Secado rápido, indeleble, colores varios
+    - Materiales: Policarbonato de alta calidad, resistente al desgaste
+    - Vida útil: Más de 100.000 impresiones por cambio de almohadilla
+    - Personalización: Texto, logos, imágenes, códigos QR
+
+    💰 PRECIOS Y PRESUPUESTOS:
+    - Timbres estándar: Desde $15.000
+    - Timbres personalizados: Desde $25.000
+    - Factores que afectan precio: Tamaño, complejidad, materiales
+    - Formas de pago: Efectivo, transferencia, tarjetas, cheques
+    - Presupuestos gratuitos para diseños personalizados
+
+    PARA CUALQUIER PREGUNTA QUE NO SEA SOBRE TIMBRES, PRODUCTOS, PRECIOS O EL NEGOCIO:
+    Responde cortésmente que solo puedes ayudar con consultas sobre timbres personalizados y redirige la conversación hacia nuestros productos.
+
+    EJEMPLOS DE RESPUESTAS PARA TEMAS NO RELACIONADOS:
+    - "¿Cuál es el gusto del azúcar?" → "Lo siento, solo puedo ayudarte con consultas sobre timbres personalizados y productos de Artesellos. ¿Te gustaría saber sobre nuestros modelos de timbres disponibles?"
+    - "¿Cómo hacer una pizza?" → "Disculpa, mi especialidad son los timbres personalizados. ¿Puedo ayudarte con información sobre nuestros productos o hacer un pedido?"
+
+    ${productContext}`;
+
+    // Validar API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY no configurada');
+      return new Response(JSON.stringify({ error: "API key no configurada" }), { status: 500 });
+    }
+
+    console.log('🔄 Llamando a OpenAI...');
+
+    // Crear mensajes para OpenAI
+    const openaiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    ];
+
+    // Llamar a OpenAI con herramientas
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: openaiMessages,
+      max_tokens: 1000,
+      temperature: 0.7,
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'consultarStock',
+          description: 'Busca timbres en el inventario por marca, modelo, color o código.',
+            parameters: {
+              type: 'object',
+              properties: {
+                termino: {
+                  type: 'string',
+                  description: 'El término de búsqueda, ej: "Shiny 722", "Automático", "Rojo"'
+                }
+              },
+              required: ['termino']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'consultarInformacionNegocio',
+            description: 'Proporciona información sobre ubicación, horarios, contacto y datos generales del negocio.',
+            parameters: {
+              type: 'object',
+              properties: {
+                tipo: {
+                  type: 'string',
+                  enum: ['ubicacion', 'horarios', 'contacto', 'general'],
+                  description: 'Tipo de información solicitada'
+                }
+              },
+              required: ['tipo']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'consultarInformacionEnvios',
+            description: 'Proporciona información sobre métodos de envío, transportes, tiempos de entrega y costos.',
+            parameters: {
+              type: 'object',
+              properties: {
+                tipo: {
+                  type: 'string',
+                  enum: ['metodos', 'tiempos', 'costos', 'regiones'],
+                  description: 'Tipo de información de envío solicitada'
+                },
+                destino: {
+                  type: 'string',
+                  description: 'Destino específico para calcular tiempos (opcional)'
+                }
+              },
+              required: ['tipo']
+            }
+          }
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'consultarInformacionPersonalizacion',
+            description: 'Proporciona información sobre pedidos personalizados, formatos de archivo y proceso de diseño.',
+            parameters: {
+              type: 'object',
+              properties: {
+                aspecto: {
+                  type: 'string',
+                  enum: ['formatos', 'proceso', 'tiempos', 'precios', 'especificaciones'],
+                  description: 'Aspecto específico de la personalización'
+                }
+              },
+              required: ['aspecto']
+            }
+          }
+        }
+      ],
+      tool_choice: 'auto'
+    });
+
+    let responseText = completion.choices[0]?.message?.content || '';
+    const toolCalls = completion.choices[0]?.message?.tool_calls;
+
+    // Si hay llamadas a herramientas, ejecutarlas
+    if (toolCalls && toolCalls.length > 0) {
+      console.log('🔧 Ejecutando herramientas...');
+
+      for (const toolCall of toolCalls) {
+        if (toolCall.function.name === 'consultarStock') {
+          const { termino } = JSON.parse(toolCall.function.arguments);
+
+          console.log(`🔍 Consultando stock para: ${termino}`);
+
+            // Búsqueda más simple y robusta
+            let query = supabase.from('stock_timbres').select('*');
+
+            // Construir condiciones de búsqueda
+            const condiciones = [
+              `marca.ilike.%${termino}%`,
+              `modelo.ilike.%${termino}%`,
+              `color.ilike.%${termino}%`,
+              `categoria.ilike.%${termino}%`
+            ];
+
+            // Si el término NO contiene medidas explícitas (formato NxN), buscar números de modelo
+            const medidaMatch = termino.match(/(\d+)\s*[x*]\s*(\d+)/i);
+            if (!medidaMatch) {
+              // Solo buscar números de modelo si NO hay medidas explícitas
+              const numeroMatch = termino.match(/\d+/);
+              if (numeroMatch) {
+                const numero = numeroMatch[0];
+                condiciones.push(`modelo.ilike.%${numero}%`);
+              }
+            }
+
+            query = query.or(condiciones.join(','));
+
+            const { data, error } = await query
+              .order('stock', { ascending: false })
+              .limit(10);
+
+
+
+          let toolResult = '';
+            if (error) {
+            console.error("❌ Error Supabase:", error);
+            toolResult = "Error técnico al consultar el inventario.";
+          } else if (!data || data.length === 0) {
+            // Si no encuentra resultados exactos, buscar medidas aproximadas
+            const medidaMatch = termino.match(/(\d+)\s*[x*]\s*(\d+)/i);
+            if (medidaMatch) {
+              const anchoBuscado = parseInt(medidaMatch[1]);
+              const altoBuscado = parseInt(medidaMatch[2]);
+
+              console.log(`🔍 Buscando medidas aproximadas para ${anchoBuscado}x${altoBuscado}mm`);
+
+              // Buscar todos los productos disponibles para encontrar medidas similares
+              const { data: todosProductos, error: errorAprox } = await supabase
+                .from('stock_timbres')
+                .select('*')
+                .gt('stock', 0);
+
+              if (!errorAprox && todosProductos && todosProductos.length > 0) {
+              // Calcular similitud de medidas
+              const productosConSimilitud = todosProductos.map(producto => {
+                const anchoDiff = Math.abs(producto.ancho_mm - anchoBuscado);
+                const altoDiff = Math.abs(producto.alto_mm - altoBuscado);
+                const similitud = anchoDiff + altoDiff;
+
+                return {
+                  ...producto,
+                  similitud,
+                  medidas: `${producto.ancho_mm}x${producto.alto_mm}mm`
+                };
+              }).sort((a, b) => a.similitud - b.similitud);
+
+              // Filtrar productos con similitud razonable (hasta 30mm de diferencia)
+              const alternativas = productosConSimilitud.filter(p => p.similitud <= 30 && p.similitud > 0).slice(0, 8);
+
+                if (alternativas.length > 0) {
+                  // Agrupar alternativas por modelo
+                  const alternativasPorModelo = alternativas.reduce((acc, item) => {
+                    const key = `${item.marca.trim()} ${item.modelo}`;
+                    if (!acc[key]) {
+                      acc[key] = {
+                        modelo: key,
+                        medidas: `${item.ancho_mm}x${item.alto_mm}mm`,
+                        diferencia: item.similitud,
+                        colores: []
+                      };
+                    }
+                    if (!acc[key].colores.includes(item.color)) {
+                      acc[key].colores.push(item.color);
+                    }
+                    return acc;
+                  }, {});
+
+                  toolResult = `No encontré timbres exactamente de ${anchoBuscado}x${altoBuscado}mm, pero aquí tienes alternativas con medidas similares:\n\n`;
+
+                  Object.values(alternativasPorModelo).forEach((alt: any) => {
+                    toolResult += `• **${alt.modelo}** - Medidas: ${alt.medidas}`;
+                    if (alt.diferencia > 0) {
+                      toolResult += ` (diferencia: ${alt.diferencia}mm)`;
+                    }
+                    toolResult += `\n  Colores: ${alt.colores.join(', ')}\n\n`;
+                  });
+
+                  toolResult += `¿Te interesaría alguno de estos modelos alternativos?`;
+                }
+              }
+            }
+
+            // Solo establecer mensaje genérico si no se ha establecido toolResult antes
+            if (!toolResult || toolResult === '') {
+              toolResult = "No encontré productos que coincidan con la búsqueda. ¿Puedes ser más específico?";
+            }
+          } else {
+            // Separar productos disponibles y todos los productos encontrados
+            const productosDisponibles = data.filter(item => item.stock > 0);
+            const todosLosProductos = data; // Incluir productos con stock 0 para mostrar todos los colores
+
+            if (productosDisponibles.length === 0) {
+              toolResult = "No hay stock disponible para los productos encontrados.";
+            } else {
+              // Agrupar TODOS los productos por modelo (incluyendo sin stock) para mostrar colores completos
+              const productosPorModelo = todosLosProductos.reduce((acc, item) => {
+                const key = `${item.marca.trim()} ${item.modelo}`;
+                if (!acc[key]) {
+                  acc[key] = {
+                    modelo: key,
+              medidas: `${item.ancho_mm}x${item.alto_mm}mm`,
+                    coloresDisponibles: [], // Colores con stock > 0
+                    coloresSinStock: [],    // Colores con stock = 0
+                    precio: item.precio || null,
+                    imagen_url: null
+                  };
+                }
+
+                // Clasificar colores según disponibilidad
+                if (item.stock > 0) {
+                  if (!acc[key].coloresDisponibles.includes(item.color)) {
+                    acc[key].coloresDisponibles.push(item.color);
+                  }
+                  // Guardar la primera imagen disponible para este modelo
+                  if (!acc[key].imagen_url && item.imagen_url) {
+                    acc[key].imagen_url = item.imagen_url;
+                  }
+                } else {
+                  if (!acc[key].coloresSinStock.includes(item.color)) {
+                    acc[key].coloresSinStock.push(item.color);
+                  }
+                }
+
+                // Usar el precio del primer producto encontrado (deberían ser iguales por modelo)
+                if (!acc[key].precio && item.precio) {
+                  acc[key].precio = item.precio;
+                }
+                return acc;
+              }, {});
+
+
+              const resumenProductos = Object.values(productosPorModelo).map((producto: any) => {
+                let respuesta = `**${producto.modelo}**\n`;
+                respuesta += `📏 Medidas: ${producto.medidas}\n`;
+                respuesta += `🎨 Colores disponibles: ${producto.coloresDisponibles.join(', ')}\n`;
+                if (producto.coloresSinStock.length > 0) {
+                  respuesta += `❌ Colores sin stock: ${producto.coloresSinStock.join(', ')}\n`;
+                }
+                if (producto.precio) {
+                  respuesta += `💰 Precio: $${producto.precio.toLocaleString('es-CL')}\n`;
+                }
+                if (producto.imagen_url) {
+                  respuesta += `\n![${producto.modelo}](${producto.imagen_url})\n`;
+                }
+                respuesta += `\n---\n`;
+                return respuesta;
+              }).slice(0, 5);
+
+              // Crear respuesta específica según la consulta del usuario
+              const consultaUsuario = messages[messages.length - 1]?.content?.toLowerCase() || '';
+
+              // Lógica general para cualquier producto
+              const coloresDisponibles = ['rojo', 'dorado', 'azul', 'verde', 'rosa', 'negro', 'violeta', 'lila'];
+              const consultaLower = consultaUsuario.toLowerCase();
+
+              // Detectar modelo mencionado en la consulta
+              const modelosDisponibles = Object.keys(productosPorModelo);
+              let modeloMencionado = extraerModeloDeConsulta(consultaUsuario, modelosDisponibles);
+
+              // Actualizar contexto si se mencionó un modelo
+              if (modeloMencionado) {
+                productoEnContexto = modeloMencionado;
+              }
+
+              // Si no se mencionó un modelo específico, buscar en el historial de mensajes
+              if (!modeloMencionado &&
+                  (consultaLower.includes('color') || consultaLower.includes('colores') ||
+                   consultaLower.includes('otro') || consultaLower.includes('otros') ||
+                   consultaLower.includes('más') || consultaLower.includes('tienes') ||
+                   coloresDisponibles.some(color => consultaLower.includes(color)))) {
+
+                // Revisar mensajes anteriores para encontrar menciones de modelos
+                for (let i = messages.length - 2; i >= 0; i--) {
+                  const mensajeAnterior = messages[i];
+                  if (mensajeAnterior.role === 'user') {
+                    const modeloEnMensajeAnterior = extraerModeloDeConsulta(mensajeAnterior.content, modelosDisponibles);
+                    if (modeloEnMensajeAnterior) {
+                      modeloMencionado = modeloEnMensajeAnterior;
+                      break;
+                    }
+                  }
+                }
+
+                // Si aún no encontramos, usar el contexto global
+                if (!modeloMencionado && productoEnContexto) {
+                  modeloMencionado = productoEnContexto;
+                }
+              }
+
+              // Buscar colores para el modelo detectado
+              let colorEspecificoPreguntado = null;
+              if (modeloMencionado) {
+                colorEspecificoPreguntado = coloresDisponibles.find(color =>
+                  consultaLower.includes(color)
+                );
+              }
+
+
+              if (colorEspecificoPreguntado && modeloMencionado) {
+                // Buscar el producto específico del color preguntado
+                const productosDisponibles = data.filter(item =>
+                  item.stock > 0 &&
+                  item.modelo === modeloMencionado.split(' ')[1] && // Extraer número del modelo
+                  item.color.toLowerCase().includes(colorEspecificoPreguntado)
+                );
+
+                if (productosDisponibles.length > 0) {
+                  const producto = productosDisponibles[0];
+                  toolResult = `Aquí tienes el timbre **${modeloMencionado}** en color ${producto.color}:\n\n`;
+                  toolResult += `📏 Medidas: ${producto.ancho_mm}x${producto.alto_mm}mm\n`;
+                  if (producto.precio) {
+                    toolResult += `💰 Precio: $${producto.precio.toLocaleString('es-CL')}\n`;
+                  } else {
+                    toolResult += `💰 Precio: Consulta por precio específico\n`;
+                  }
+                  if (producto.imagen_url) {
+                    toolResult += `\n![${modeloMencionado} ${producto.color}](${producto.imagen_url})\n`;
+                  }
+                  toolResult += `\nSi deseas hacer un pedido o necesitas más información, ¡estaré encantado de ayudarte!`;
+                } else {
+                  toolResult = `Lo siento, no tenemos disponible el timbre ${modeloMencionado} en el color que mencionas. Los colores disponibles son: ${productosPorModelo[modeloMencionado]?.colores.join(', ') || 'consulta general'}.`;
+                }
+              } else if (consultaUsuario.includes('color') || consultaUsuario.includes('colores')) {
+                // Si se pregunta por colores y hay un modelo en contexto
+                if (modeloMencionado && productosPorModelo[modeloMencionado]) {
+                  const coloresModelo = productosPorModelo[modeloMencionado].colores || [];
+                  if (coloresModelo.length > 0) {
+                    toolResult = `El timbre ${modeloMencionado} está disponible en los siguientes colores: ${coloresModelo.join(', ')}. Todos estos colores tienen stock disponible actualmente.`;
+                  } else {
+                    toolResult = `No hay información específica de colores para el ${modeloMencionado} en este momento.`;
+                  }
+                } else {
+                  // Respuesta general sobre productos disponibles
+                  toolResult = `Tenemos varios modelos disponibles. ${resumenProductos.join('\n')}`;
+                }
+              } else if ((consultaUsuario.includes('mostrar') || consultaUsuario.includes('ver') || consultaUsuario.includes('imagen') || consultaUsuario.includes('foto')) && modeloMencionado) {
+                // Si pide mostrar/ver imágenes de un modelo específico
+                const productosConImagen = data.filter(item =>
+                  item.stock > 0 &&
+                  item.modelo === modeloMencionado.split(' ')[1] &&
+                  item.imagen_url
+                );
+
+                if (productosConImagen.length > 0) {
+                  const producto = productosPorModelo[modeloMencionado];
+
+                  // Seleccionar imagen representativa
+                  productosConImagen.sort((a, b) => {
+                    const prioridades = { 'negro': 3, 'azul': 2 };
+                    const prioridadA = prioridades[a.color.toLowerCase()] || 1;
+                    const prioridadB = prioridades[b.color.toLowerCase()] || 1;
+
+                    if (prioridadA !== prioridadB) return prioridadB - prioridadA;
+                    return b.stock - a.stock;
+                  });
+
+                  const imagenSeleccionada = productosConImagen[0];
+                  toolResult = `Aquí tienes una imagen del timbre **${producto.modelo}**:\n\n`;
+                  toolResult += `🎨 Colores disponibles: ${producto.coloresDisponibles.join(', ')}\n`;
+                  if (producto.coloresSinStock.length > 0) {
+                    toolResult += `❌ Colores sin stock: ${producto.coloresSinStock.join(', ')}\n`;
+                  }
+                  toolResult += `📏 Medidas: ${producto.medidas}\n`;
+                  if (producto.precio) {
+                    toolResult += `💰 Precio: $${producto.precio.toLocaleString('es-CL')}\n`;
+                  }
+                  toolResult += `\n![${producto.modelo} - ${imagenSeleccionada.color}](${imagenSeleccionada.imagen_url})\n\n`;
+                  toolResult += `Si deseas ver un color específico o necesitas más información, ¡házmelo saber!`;
+                } else {
+                  toolResult = `Lo siento, no tengo imágenes disponibles del ${modeloMencionado} en este momento, pero puedo confirmarte que está disponible en varios colores.`;
+                }
+              } else if (modeloMencionado && productosPorModelo[modeloMencionado]) {
+                // Si pregunta específicamente por un modelo, mostrar detalles con imagen
+                const producto = productosPorModelo[modeloMencionado];
+
+                // Encontrar una imagen disponible para mostrar
+                const productosConImagen = data.filter(item =>
+                  item.stock > 0 &&
+                  item.modelo === modeloMencionado.split(' ')[1] &&
+                  item.imagen_url
+                );
+
+                toolResult = `¡Sí! El timbre **${producto.modelo}** está disponible.\n\n`;
+                toolResult += `📏 Medidas: ${producto.medidas}\n`;
+                toolResult += `🎨 Colores disponibles: ${producto.coloresDisponibles.join(', ')}\n`;
+                if (producto.coloresSinStock.length > 0) {
+                  toolResult += `❌ Colores sin stock: ${producto.coloresSinStock.join(', ')}\n`;
+                }
+                if (producto.precio) {
+                  toolResult += `💰 Precio: $${producto.precio.toLocaleString('es-CL')}\n`;
+                }
+
+                // Mostrar imágenes de todos los colores disponibles que tengan imagen
+                if (productosConImagen.length > 0) {
+                  // Mostrar hasta 3 imágenes de diferentes colores
+                  const imagenesAMostrar = productosConImagen.slice(0, 3);
+                  toolResult += `\n**Imágenes disponibles:**\n`;
+                  imagenesAMostrar.forEach(imagen => {
+                    toolResult += `![${producto.modelo} - ${imagen.color}](${imagen.imagen_url})\n`;
+                  });
+                }
+
+                toolResult += `\nSi deseas ver un color específico o necesitas más información, ¡házmelo saber!`;
+              } else {
+                // Respuesta general para otras consultas
+                toolResult = `Productos disponibles:\n\n${resumenProductos.join('\n')}`;
+              }
+
+          // Agregar resultado de la herramienta al contexto
+          openaiMessages.push({
+            role: 'assistant',
+            content: responseText,
+            tool_calls: [toolCall]
+          } as any);
+
+          openaiMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult
+          } as any);
+
+          // Generar respuesta final con el contexto de la herramienta
+          const finalCompletion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: openaiMessages,
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+
+          responseText = finalCompletion.choices[0]?.message?.content || 'Lo siento, no pude generar una respuesta.';
+        }
+      }
+
+      console.log('✅ Respuesta generada correctamente');
+
+      // Crear respuesta en formato streaming simple
+      const streamResponse = new ReadableStream({
+        start(controller) {
+          const data = JSON.stringify({ content: responseText });
+          controller.enqueue(`data: ${data}\n\n`);
+          controller.enqueue('data: [DONE]\n\n');
+          controller.close();
+        }
+      });
+
+      return new Response(streamResponse, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+
+    } catch (error) {
+      console.error('❌ Error:', error);
+      return new Response(JSON.stringify({
+        error: 'Error interno',
+        details: error.message
+      }), { status: 500 });
+    }
+}

@@ -25,7 +25,7 @@ function resolveAssetUrl(raw?: string): string {
   return `${base}/${encoded}`;
 }
 
-/**
+ /**
  * Adaptador para convertir productos de Supabase al formato esperado por los componentes
  */
 export function adaptSupabaseProduct(supabaseProduct: SupabaseProduct): MockProduct {
@@ -57,7 +57,13 @@ export function adaptSupabaseProduct(supabaseProduct: SupabaseProduct): MockProd
       height: supabaseProduct.dimensions?.height?.toString() || '14',
     },
     tags: adaptTags(supabaseProduct.tags),
-    featured: supabaseProduct.featured || true, // Marcar como destacado por defecto
+    
+    // --- CORRECCIÓN AQUÍ ---
+    // Antes: forzaba true si era false.
+    // Ahora: Solo es true si en la DB es true. Si es null o false, queda false.
+    featured: supabaseProduct.featured === true, 
+    // -----------------------
+
     date_created: supabaseProduct.created_at,
     date_modified: supabaseProduct.updated_at,
     // Configuración específica para timbres
@@ -235,20 +241,47 @@ function adaptCategories(categories: string[]): MockProduct['categories'] {
 }
 
 /**
- * Convierte array de atributos de Supabase a formato Mock
+ * Convierte atributos de Supabase a formato Mock
+ * Los atributos pueden venir como:
+ * - Un objeto con propiedades (ej: {marca: "Shiny", modelo: "722"})
+ * - Un array de objetos (formato estándar)
+ * - null o undefined
  */
-function adaptAttributes(attributes: SupabaseProduct['attributes']): MockProduct['attributes'] {
-  if (!attributes || attributes.length === 0) {
+function adaptAttributes(attributes: any): MockProduct['attributes'] {
+  // Si no hay atributos
+  if (!attributes) {
     return [];
   }
 
-  return attributes.map((attr, index) => ({
-    id: index + 1,
-    name: attr.name,
-    options: attr.options,
-    visible: attr.visible,
-    variation: attr.variation
-  }));
+  // Si es un array vacío
+  if (Array.isArray(attributes) && attributes.length === 0) {
+    return [];
+  }
+
+  // Si es un array con elementos (formato estándar)
+  if (Array.isArray(attributes) && attributes.length > 0) {
+    return attributes.map((attr, index) => ({
+      id: index + 1,
+      name: attr.name || 'Atributo',
+      options: attr.options || [],
+      visible: attr.visible !== false,
+      variation: attr.variation || false
+    }));
+  }
+
+  // Si es un objeto (formato alternativo de Supabase)
+  if (typeof attributes === 'object' && !Array.isArray(attributes)) {
+    // Convertir el objeto a un array de atributos
+    return Object.entries(attributes).map(([key, value], index) => ({
+      id: index + 1,
+      name: key.charAt(0).toUpperCase() + key.slice(1), // Capitalizar primera letra
+      options: [String(value)], // Convertir el valor a array de opciones
+      visible: true,
+      variation: false
+    }));
+  }
+
+  return [];
 }
 
 /**

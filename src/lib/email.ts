@@ -10,15 +10,6 @@ interface AddressData {
   country: string;
 }
 
-interface DesignData {
-  text: string;
-  shape: string;
-  size: string;
-  color: string;
-  font?: string;
-  icons?: string[];
-}
-
 // Email templates (solo las plantillas, sin la lógica de envío)
 export const emailTemplates = {
   contactMessage: (data: {
@@ -117,35 +108,6 @@ export const emailTemplates = {
       </div>
     `,
   }),
-
-  customDesign: (data: {
-    customer_name: string;
-    customer_email: string;
-    design_data: DesignData;
-  }) => ({
-    subject: `Nuevo diseño personalizado - ${data.customer_name}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #6366f1;">Nuevo diseño personalizado</h2>
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p><strong>Cliente:</strong> ${data.customer_name}</p>
-          <p><strong>Email:</strong> ${data.customer_email}</p>
-          <p><strong>Detalles del diseño:</strong></p>
-          <div style="background: white; padding: 15px; border-radius: 4px;">
-            <p><strong>Texto:</strong> ${data.design_data.text}</p>
-            <p><strong>Forma:</strong> ${data.design_data.shape}</p>
-            <p><strong>Tamaño:</strong> ${data.design_data.size}</p>
-            <p><strong>Color:</strong> ${data.design_data.color}</p>
-            ${data.design_data.font ? `<p><strong>Fuente:</strong> ${data.design_data.font}</p>` : ''}
-            ${data.design_data.icons && data.design_data.icons.length > 0 ? `<p><strong>Íconos:</strong> ${data.design_data.icons.join(', ')}</p>` : ''}
-          </div>
-        </div>
-        <p style="color: #6b7280; font-size: 14px;">
-          Este mensaje fue enviado desde el formulario de diseño personalizado de Artesellos.
-        </p>
-      </div>
-    `,
-  }),
 };
 
 // Funciones para enviar emails usando API routes (solo para el cliente)
@@ -196,21 +158,6 @@ export async function sendWholesaleRegistration(data: {
   address: AddressData;
 }) {
   const response = await fetch('/api/wholesale', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  return response.json();
-}
-
-export async function sendCustomDesign(data: {
-  customer_name: string;
-  customer_email: string;
-  design_data: DesignData;
-}) {
-  const response = await fetch('/api/custom-design', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

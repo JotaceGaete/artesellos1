@@ -4,15 +4,10 @@ export const runtime = 'edge';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { getProducts, getCategories } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import type { Product as ProductType } from '@/types/product';
-
-interface CategoryPageProps {
-  params: {
-    slug: string;
-  };
-}
 
 interface Product {
   id: number;
@@ -47,7 +42,10 @@ interface Category {
   count?: number;
 }
 
-export default function CategoryPage({ params }: CategoryPageProps) {
+export default function CategoryPage() {
+  const params = useParams();
+  const slug = (params?.slug as string) || '';
+  
   const [products, setProducts] = useState<ProductType[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -58,8 +56,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
   const productsPerPage = 12;
 
   useEffect(() => {
-    loadCategoryAndProducts();
-  }, [currentPage]);
+    if (slug) {
+      loadCategoryAndProducts();
+    }
+  }, [currentPage, slug]);
 
   // Función para convertir productos de WooCommerce al formato esperado por ProductCard
   const convertWooCommerceToProductType = (wooProduct: Product): ProductType => {
@@ -99,8 +99,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
       const categoriesData = await getCategories();
       setCategories(categoriesData || []);
 
-      // Encontrar la categoría actual (params puede ser Promise en Next 15)
-      const slug = (params as any)?.slug ?? '';
+      // Encontrar la categoría actual
       const currentCategory = categoriesData?.find(cat => cat.slug === slug);
       setCategory(currentCategory || null);
 
@@ -186,16 +185,16 @@ export default function CategoryPage({ params }: CategoryPageProps) {
               <svg className="w-5 h-5 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
               </svg>
-              <span className="text-gray-900">{category?.name || formatCategoryName((params as any).slug)}</span>
+              <span className="text-gray-900">{category?.name || formatCategoryName(slug)}</span>
             </li>
           </ol>
         </nav>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          {category?.name || formatCategoryName((params as any).slug)}
+          {category?.name || formatCategoryName(slug)}
         </h1>
         <p className="text-lg text-gray-600 max-w-3xl">
-          {getCategoryDescription((params as any).slug)}
+          {getCategoryDescription(slug)}
         </p>
       </div>
 
@@ -212,7 +211,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   key={cat.id}
                   href={`/categoria/${cat.slug}`}
                   className={`block px-3 py-2 rounded-md text-sm transition-colors ${
-                    cat.slug === (params as any).slug
+                    cat.slug === slug
                       ? 'bg-indigo-100 text-indigo-700 font-medium'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
@@ -242,16 +241,16 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   Ver todos los productos
                 </Link>
                 <Link
-                  href="/diseno-personalizado"
-                  className="block text-sm text-gray-600 hover:text-indigo-600 transition-colors"
-                >
-                  Diseño personalizado
-                </Link>
-                <Link
                   href="/cotizaciones"
                   className="block text-sm text-gray-600 hover:text-indigo-600 transition-colors"
                 >
                   Solicitar cotización
+                </Link>
+                <Link
+                  href="/contacto"
+                  className="block text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+                >
+                  Contactar
                 </Link>
               </div>
             </div>
@@ -333,20 +332,14 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                 No hay productos en esta categoría
               </h3>
               <p className="text-gray-600 mb-6">
-                Actualmente no tenemos productos disponibles en la categoría {category?.name || formatCategoryName(params.slug)}.
+                Actualmente no tenemos productos disponibles en la categoría {category?.name || formatCategoryName(slug)}.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href="/productos"
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                  className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg"
                 >
                   Ver todos los productos
-                </Link>
-                <Link
-                  href="/diseno-personalizado"
-                  className="border border-indigo-600 text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors"
-                >
-                  Diseño personalizado
                 </Link>
               </div>
             </div>
@@ -360,20 +353,14 @@ export default function CategoryPage({ params }: CategoryPageProps) {
           ¿No encuentras lo que buscas?
         </h2>
         <p className="text-lg mb-6 text-indigo-100">
-          Podemos crear un diseño personalizado único para tu categoría
+          Contáctanos y te ayudaremos a encontrar el producto perfecto
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex justify-center">
           <Link
-            href="/diseno-personalizado"
-            className="bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+            href="/contacto"
+            className="px-8 py-3 text-sm font-semibold text-indigo-600 bg-white rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
           >
-            Diseñar Personalizado
-          </Link>
-          <Link
-            href="/cotizaciones"
-            className="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-indigo-600 transition-colors"
-          >
-            Solicitar Cotización
+            Contactar
           </Link>
         </div>
       </div>
