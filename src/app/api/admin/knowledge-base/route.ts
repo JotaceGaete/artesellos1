@@ -12,12 +12,41 @@ const ALLOWED_ADMIN_EMAILS = new Set<string>([
 // GET - Listar fragmentos de conocimiento
 export async function GET(req: NextRequest) {
   try {
+    // Permitir bypass si está configurado o si no estamos en producción
+    // IMPORTANTE: En producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en Vercel si no usas autenticación
     const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
+    
     if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      try {
+        const user = await getUser();
+        console.log('🔐 Verificando autenticación:', { 
+          hasUser: !!user, 
+          email: user?.email,
+          isAllowed: user?.email ? ALLOWED_ADMIN_EMAILS.has(user.email) : false
+        });
+        
+        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+          console.log('⚠️ Usuario no autorizado');
+          return NextResponse.json({ 
+            message: 'No autorizado. Para usar sin autenticación en producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en las variables de entorno de Vercel.'
+          }, { status: 401 });
+        }
+      } catch (authError: unknown) {
+        console.error('❌ Error en autenticación:', authError);
+        const errorMessage = authError instanceof Error ? authError.message : String(authError);
+        
+        // Si hay un error de autenticación y no está configurado el bypass, rechazar
+        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
+          return NextResponse.json({ 
+            message: 'Error de autenticación. Para usar sin autenticación en producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en las variables de entorno de Vercel.',
+            error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          }, { status: 401 });
+        }
+        // Si el bypass está configurado, continuar
+        console.log('✅ Bypass activado por configuración');
       }
+    } else {
+      console.log('✅ Bypass activado (desarrollo o NEXT_PUBLIC_ADMIN_BYPASS=true)');
     }
 
     const supabase = createSupabaseAdmin();
@@ -69,10 +98,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
+    
     if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      try {
+        const user = await getUser();
+        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+        }
+      } catch (authError) {
+        console.error('❌ Error en autenticación:', authError);
+        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
+          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
+        }
       }
     }
 
@@ -146,10 +183,18 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
+    
     if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      try {
+        const user = await getUser();
+        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+        }
+      } catch (authError) {
+        console.error('❌ Error en autenticación:', authError);
+        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
+          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
+        }
       }
     }
 
@@ -218,10 +263,18 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
+    
     if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+      try {
+        const user = await getUser();
+        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+        }
+      } catch (authError) {
+        console.error('❌ Error en autenticación:', authError);
+        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
+          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
+        }
       }
     }
 
