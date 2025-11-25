@@ -41,7 +41,7 @@ export async function insertKnowledge(
 
     // Insertar en Supabase
     const supabase = createSupabaseAdmin();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('knowledge_base')
       .insert({
         content,
