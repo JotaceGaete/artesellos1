@@ -5,12 +5,14 @@ interface ProductGridProps {
   products: Product[];
   loading?: boolean;
   emptyMessage?: string;
+  prioritizeFirst?: number;
 }
 
 export default function ProductGrid({
   products,
   loading = false,
-  emptyMessage = "No se encontraron productos."
+  emptyMessage = "No se encontraron productos.",
+  prioritizeFirst = 0
 }: ProductGridProps) {
   if (loading) {
     return (
@@ -44,8 +46,8 @@ export default function ProductGrid({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 xl:gap-6">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+      {products.map((product, index) => (
+        <ProductCard key={product.id} product={product} priority={index < prioritizeFirst} />
       ))}
     </div>
   );

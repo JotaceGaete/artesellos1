@@ -69,6 +69,7 @@ export default async function Home() {
           <ProductCarousel
             products={featuredProducts}
             emptyMessage="No hay productos destacados disponibles en este momento."
+            prioritizeFirst={2}
           />
         </div>
       </section>
@@ -104,6 +105,7 @@ export default async function Home() {
           <ProductGrid
             products={products}
             emptyMessage="No hay productos disponibles en este momento."
+            prioritizeFirst={4}
           />
 
           <div className="text-center mt-12">

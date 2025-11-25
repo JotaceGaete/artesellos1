@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { Product } from '@/types/product';
 import { Eye } from 'lucide-react';
@@ -65,20 +66,25 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       {/* Contenedor de Imagen - Aspect Square */}
       <div className="relative aspect-square bg-gray-50 overflow-hidden">
         {/* Imagen del producto */}
-        <div className="absolute inset-0 flex items-center justify-center p-4">
-          <img
-            src={currentImage}
-            alt={product.images?.[0]?.alt || product.name}
-            className={`max-w-full max-h-full w-auto h-auto object-contain transition-all duration-500 ${
-              isHovered ? 'scale-105' : 'scale-100'
-            } ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-            onLoad={() => setImageLoaded(true)}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80';
-              setImageLoaded(true);
-            }}
-          />
+        <div className="absolute inset-0 p-4">
+          <div className="relative w-full h-full">
+            <Image
+              src={currentImage}
+              alt={product.images?.[0]?.alt || product.name}
+              fill
+              className={`object-contain transition-all duration-500 ${
+                isHovered ? 'scale-105' : 'scale-100'
+              } ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              onLoad={() => setImageLoaded(true)}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80';
+                setImageLoaded(true);
+              }}
+              priority={priority}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            />
+          </div>
         </div>
 
         {/* Skeleton mientras carga */}

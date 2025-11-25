@@ -7,9 +7,10 @@ import { Product } from '@/types/product';
 interface ProductCarouselProps {
   products: Product[];
   emptyMessage?: string;
+  prioritizeFirst?: number;
 }
 
-export default function ProductCarousel({ products, emptyMessage = 'No se encontraron productos.' }: ProductCarouselProps) {
+export default function ProductCarousel({ products, emptyMessage = 'No se encontraron productos.', prioritizeFirst = 0 }: ProductCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
   if (!products || products.length === 0) {
@@ -54,9 +55,9 @@ export default function ProductCarousel({ products, emptyMessage = 'No se encont
           div::-webkit-scrollbar { display: none; }
         `}</style>
         <div className="flex gap-4 md:gap-5 xl:gap-6 px-1">
-          {products.map((product) => (
+          {products.map((product, index) => (
             <div key={product.id} className="snap-start shrink-0 w-[260px] sm:w-[280px] md:w-[300px] lg:w-[320px]">
-              <ProductCard product={product} />
+              <ProductCard product={product} priority={index < prioritizeFirst} />
             </div>
           ))}
         </div>
