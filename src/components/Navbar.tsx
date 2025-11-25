@@ -28,6 +28,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'Inicio' },
     { href: '/productos', label: 'Productos' },
+    { href: '/diseno-personalizado', label: 'Diseño Personalizado' },
     { href: '/contacto', label: 'Contacto' }
   ]
 

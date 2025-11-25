@@ -1,7 +1,7 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -61,10 +61,11 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ items: data || [] });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error en GET /api/admin/stock:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error al obtener stock';
     return NextResponse.json(
-      { error: error.message || 'Error al obtener stock' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -95,8 +96,24 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdmin();
 
+    // Tipo para items de stock
+    interface StockItem {
+      marca?: string;
+      modelo?: string;
+      color?: string;
+      quantity?: number;
+      stock?: number;
+      precio?: number;
+      medidas?: string;
+      imagen_url?: string;
+      descripcion?: string;
+      categoria?: string;
+      id?: number;
+      product_sku?: string;
+    }
+
     // Preparar datos para upsert
-    const updates = items.map((item: any) => ({
+    const updates = items.map((item: StockItem) => ({
       // Si viene con product_sku, intentar parsearlo
       marca: item.marca || item.product_sku?.split(' ')[0] || '',
       modelo: item.modelo || item.product_sku?.split(' ')[1] || '',
@@ -160,10 +177,11 @@ export async function POST(req: NextRequest) {
       message: `Stock actualizado: ${results.length} registros procesados${errors.length > 0 ? `, ${errors.length} errores` : ''}`,
       ...(errors.length > 0 && { warnings: errors }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error en POST /api/admin/stock:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error al actualizar stock';
     return NextResponse.json(
-      { error: error.message || 'Error al actualizar stock' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
