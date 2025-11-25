@@ -5,6 +5,7 @@ export const runtime = 'edge';
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import CategorySelector from '@/components/admin/CategorySelector'
+import StockTable from '@/components/admin/StockTable'
 
 interface Product {
   id: string
@@ -28,6 +29,45 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [stockFilters, setStockFilters] = useState<{ marca?: string; modelo?: string }>({})
+
+  // Función para extraer marca y modelo del nombre del producto
+  const extractMarcaModelo = (productName: string) => {
+    // Patrones comunes: "Marca Modelo", "Marca-Modelo", "Marca Modelo - Descripción"
+    const patterns = [
+      /^(\w+)\s+(\d+)/i,  // "Shiny 722", "Automatik 913"
+      /^(\w+)-(\d+)/i,     // "Shiny-722"
+      /^(\w+)\s+(\w+)\s+(\d+)/i,  // "Shiny Printer 842"
+    ];
+
+    for (const pattern of patterns) {
+      const match = productName.match(pattern);
+      if (match) {
+        // Si tiene 3 grupos, el segundo puede ser parte del nombre
+        if (match.length >= 3) {
+          // Intentar detectar si el segundo grupo es un número (modelo)
+          if (/^\d+$/.test(match[2])) {
+            return { marca: match[1], modelo: match[2] };
+          }
+          // Si hay 3 grupos y el tercero es número, usar los primeros dos como marca
+          if (match.length >= 4 && /^\d+$/.test(match[3])) {
+            return { marca: `${match[1]} ${match[2]}`, modelo: match[3] };
+          }
+        }
+      }
+    }
+
+    // Si no coincide ningún patrón, intentar dividir por espacios
+    const parts = productName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      const lastPart = parts[parts.length - 1];
+      if (/^\d+$/.test(lastPart)) {
+        return { marca: parts.slice(0, -1).join(' '), modelo: lastPart };
+      }
+    }
+
+    return { marca: undefined, modelo: undefined };
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -65,6 +105,12 @@ export default function EditProductPage() {
         stock_quantity: data.stock_quantity?.toString() || '',
         stock_status: data.stock_status || 'instock'
       })
+      
+      // Extraer marca y modelo del nombre para filtrar stock
+      if (data.name) {
+        const { marca, modelo } = extractMarcaModelo(data.name);
+        setStockFilters({ marca, modelo });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
@@ -286,6 +332,27 @@ export default function EditProductPage() {
             initial={product.categories || []} 
           />
         </div>
+
+        {/* Gestión de Stock - Solo si se pudo extraer marca y modelo */}
+        {(stockFilters.marca || stockFilters.modelo) && (
+          <div className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">
+              Gestión de Stock por Variantes
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Stock disponible por color para <strong>{product.name}</strong>
+              {stockFilters.marca && stockFilters.modelo && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (Filtrado: {stockFilters.marca} {stockFilters.modelo})
+                </span>
+              )}
+            </p>
+            <StockTable 
+              filterByMarca={stockFilters.marca}
+              filterByModelo={stockFilters.modelo}
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <button

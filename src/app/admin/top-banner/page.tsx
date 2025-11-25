@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/admin/AdminLayout'
 
 interface BannerItem { id?: string; text: string; url?: string; active?: boolean; order_index?: number }
 
@@ -43,11 +44,11 @@ export default function AdminTopBannerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Top Banner</h1>
-        <Link href="/admin" className="text-sm text-indigo-600 hover:underline">Volver</Link>
-      </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Top Banner</h1>
+        </div>
 
       {error && <div className="text-sm text-red-600">{error}</div>}
 
@@ -86,7 +87,8 @@ export default function AdminTopBannerPage() {
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }
 

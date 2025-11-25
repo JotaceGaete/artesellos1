@@ -182,6 +182,14 @@ export interface ContactMessage {
   updated_at: string;
 }
 
+export interface KnowledgeBase {
+  id: number;
+  content: string;
+  embedding: number[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Funciones de utilidad para Supabase
 export const supabaseUtils = {
   // Productos

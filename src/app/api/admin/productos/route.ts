@@ -8,6 +8,41 @@ const ALLOWED_ADMIN_EMAILS = new Set<string>([
   'artesellos@outlook.com',
 ])
 
+// GET - Listar productos
+export async function GET(req: NextRequest) {
+  try {
+    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'
+    if (!BYPASS) {
+      const user = await getUser()
+      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
+        return NextResponse.json({ message: 'No autorizado' }, { status: 401 })
+      }
+    }
+
+    const supabase = createSupabaseAdmin()
+    const { searchParams } = new URL(req.url)
+    const action = searchParams.get('action')
+
+    if (action === 'list') {
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (error) {
+        return NextResponse.json({ message: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ products: products || [] })
+    }
+
+    return NextResponse.json({ message: 'Acción no válida' }, { status: 400 })
+  } catch (err: any) {
+    return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'

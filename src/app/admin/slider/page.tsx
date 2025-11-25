@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import AdminLayout from '@/components/admin/AdminLayout'
 
 interface Slide {
   id?: string
@@ -100,11 +101,11 @@ export default function AdminSliderPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Slider - Administración</h1>
-        <Link href="/admin" className="text-sm text-indigo-600 hover:underline">Volver</Link>
-      </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Slider - Administración</h1>
+        </div>
 
       {error && <div className="text-sm text-red-600">{error}</div>}
 
@@ -136,8 +137,8 @@ export default function AdminSliderPage() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {items.map((s) => (
-              <>
-                <tr key={s.id}>
+              <React.Fragment key={s.id}>
+                <tr>
                   <td className="px-3 py-2 text-sm">
                     <input className="w-16 border rounded px-2 py-1 text-sm" type="number" defaultValue={s.slide_order ?? 0} onBlur={(e) => update(s.id!, { slide_order: Number(e.target.value) })} />
                   </td>
@@ -157,7 +158,7 @@ export default function AdminSliderPage() {
                   </td>
                 </tr>
                 {editingId === s.id && (
-                  <tr>
+                  <tr key={`${s.id}-edit`}>
                     <td colSpan={6} className="bg-gray-50 px-3 py-3">
                       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                         <input className="border rounded px-2 py-1 text-sm md:col-span-3" placeholder="Descripción" value={editForm.description || ''} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
@@ -174,7 +175,7 @@ export default function AdminSliderPage() {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
             {items.length === 0 && (
               <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-500">Sin slides</td></tr>
@@ -182,7 +183,8 @@ export default function AdminSliderPage() {
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+    </AdminLayout>
   )
 }
 

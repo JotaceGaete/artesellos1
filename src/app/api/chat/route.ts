@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
+import { findRelevantContext } from '@/lib/vectorSearch';
 
 // Cliente Supabase
 const supabase = createClient(
@@ -124,6 +125,23 @@ Sé amable, profesional y servicial.`;
 
     const lastMessage = messages[messages.length - 1]?.content || '';
     console.log('📨 Mensaje recibido:', lastMessage);
+
+    // RAG: Buscar contexto relevante en la base de conocimiento
+    let ragContext = '';
+    try {
+      const relevantContexts = await findRelevantContext(lastMessage, 0.7, 5);
+      if (relevantContexts.length > 0) {
+        ragContext = '\n\n📚 CONTEXTO RELEVANTE DE LA BASE DE CONOCIMIENTO:\n\n' + 
+                     relevantContexts.join('\n\n---\n\n') + 
+                     '\n\n⚠️ IMPORTANTE: Responde la siguiente pregunta basándote SOLO en el contexto proporcionado arriba y en la información del sistema.';
+        console.log('✅ Contexto RAG recuperado:', relevantContexts.length, 'fragmentos');
+      } else {
+        console.log('ℹ️ No se encontró contexto relevante en la base de conocimiento');
+      }
+    } catch (error) {
+      console.error('⚠️ Error al recuperar contexto RAG:', error);
+      // Continuar sin contexto RAG si hay error
+    }
 
     // Normalizar variantes de marcas (corregir errores comunes)
     const normalizeBrand = (text: string): string => {
@@ -258,11 +276,15 @@ Sé amable, profesional y servicial.`;
           responseContent = formatProductResults(data);
         }
       } else {
-        // Si no encontramos, usar OpenAI como fallback
+        // Si no encontramos, usar OpenAI como fallback con RAG
+        const enhancedSystemPrompt = ragContext 
+          ? `${systemPrompt}\n\n${ragContext}\n\nPregunta del usuario: ${lastMessage}\n\nResponde basándote SOLO en el contexto proporcionado arriba.`
+          : systemPrompt + stockInfo;
+        
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: systemPrompt + stockInfo },
+            { role: 'system', content: enhancedSystemPrompt },
             ...messages.map((m: any) => ({
               role: m.role,
               content: m.content
@@ -272,11 +294,15 @@ Sé amable, profesional y servicial.`;
         responseContent = completion.choices[0].message.content || 'No encontré información sobre ese producto.';
       }
     } else {
-      // Consulta normal con OpenAI
+      // Consulta normal con OpenAI y RAG
+      const enhancedSystemPrompt = ragContext 
+        ? `${systemPrompt}\n\n${ragContext}\n\nPregunta del usuario: ${lastMessage}\n\nResponde basándote SOLO en el contexto proporcionado arriba.`
+        : systemPrompt + stockInfo;
+      
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: systemPrompt + stockInfo },
+          { role: 'system', content: enhancedSystemPrompt },
           ...messages.map((m: any) => ({
             role: m.role,
             content: m.content
