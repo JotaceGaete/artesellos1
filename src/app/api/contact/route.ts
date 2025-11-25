@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// Usar Node.js runtime para nodemailer
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   try {
     const { nombre, email, telefono, mensaje } = await req.json();
@@ -22,121 +25,143 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log('📧 Configurando transporter de Zoho Mail...');
+    // Verificar que las variables de entorno estén configuradas
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+      console.error('❌ Variables de entorno SMTP no configuradas');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Configuración del servidor de correo incompleta. Por favor contacta al administrador.',
+        },
+        { status: 500 }
+      );
+    }
 
-    // Configurar transporter específico para Zoho
+    console.log('📧 Configurando transporter de Zoho Mail...');
+    console.log('🔍 Configuración:', {
+      host: process.env.SMTP_HOST || 'smtp.zoho.com',
+      port: process.env.SMTP_PORT || '465',
+      user: process.env.SMTP_USER,
+      hasPassword: !!process.env.SMTP_PASSWORD
+    });
+
+    // Configurar transporter para Zoho Mail
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 465,
+      host: process.env.SMTP_HOST || 'smtp.zoho.com',
+      port: parseInt(process.env.SMTP_PORT || '465'),
       secure: true, // true para puerto 465 (SSL)
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
       },
-      // Opciones adicionales para Zoho
       tls: {
-        rejectUnauthorized: true,
+        rejectUnauthorized: false, // Permitir certificados autofirmados en desarrollo
       },
     });
 
-    // Verificar conexión
-    await transporter.verify();
-    console.log('✅ Conexión SMTP verificada');
+    // Verificar conexión SMTP
+    try {
+      await transporter.verify();
+      console.log('✅ Conexión SMTP verificada');
+    } catch (verifyError: any) {
+      console.error('❌ Error al verificar SMTP:', verifyError);
+      console.error('Detalles del error:', {
+        code: verifyError.code,
+        command: verifyError.command,
+        response: verifyError.response,
+        message: verifyError.message
+      });
+      
+      // Mensaje de error más específico
+      let errorMessage = 'Error de configuración del servidor de correo.';
+      
+      if (verifyError.code === 'EAUTH') {
+        errorMessage = 'Error de autenticación. Verifica usuario y contraseña.';
+      } else if (verifyError.code === 'ETIMEDOUT' || verifyError.code === 'ECONNREFUSED') {
+        errorMessage = 'No se pudo conectar al servidor de correo. Verifica la configuración.';
+      } else if (verifyError.message?.includes('Invalid login')) {
+        errorMessage = 'Usuario o contraseña incorrectos. Si tienes 2FA, usa una contraseña de aplicación.';
+      }
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: errorMessage,
+          details: process.env.NODE_ENV === 'development' ? verifyError.message : undefined
+        },
+        { status: 500 }
+      );
+    }
 
-    // Construir HTML profesional del email
+    // Construir HTML del email
     const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Nuevo mensaje de contacto - Artesellos</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+          .field { margin-bottom: 15px; }
+          .label { font-weight: bold; color: #4b5563; }
+          .value { color: #1f2937; }
+          .message-box { background: white; border: 2px solid #e5e7eb; padding: 20px; border-radius: 8px; margin-top: 20px; }
+          .footer { background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+        </style>
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
-        <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);">
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📬 Nuevo Mensaje de Contacto</h1>
+            <p>Desde artesellos.cl</p>
+          </div>
           
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 40px 30px; text-align: center;">
-            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
-              📬 Nuevo Mensaje de Contacto
-            </h1>
-            <p style="margin: 10px 0 0; color: #e0e7ff; font-size: 14px;">
-              Recibido desde artesellos.cl
-            </p>
-          </div>
-
-          <!-- Body -->
-          <div style="padding: 40px 30px;">
+          <div class="content">
+            <h2>Datos del Cliente</h2>
             
-            <!-- Datos del remitente -->
-            <div style="background-color: #f9fafb; border-left: 4px solid #4f46e5; padding: 20px; margin-bottom: 30px; border-radius: 8px;">
-              <h2 style="margin: 0 0 15px; color: #1f2937; font-size: 18px; font-weight: 600;">
-                Datos del Cliente
-              </h2>
-              
-              <div style="margin-bottom: 12px;">
-                <strong style="color: #4b5563; display: inline-block; width: 100px;">👤 Nombre:</strong>
-                <span style="color: #1f2937;">${nombre}</span>
-              </div>
-              
-              <div style="margin-bottom: 12px;">
-                <strong style="color: #4b5563; display: inline-block; width: 100px;">✉️ Email:</strong>
-                <a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a>
-              </div>
-              
-              ${telefono ? `
-              <div style="margin-bottom: 12px;">
-                <strong style="color: #4b5563; display: inline-block; width: 100px;">📞 Teléfono:</strong>
-                <a href="tel:${telefono}" style="color: #4f46e5; text-decoration: none;">${telefono}</a>
-              </div>
-              ` : ''}
+            <div class="field">
+              <span class="label">👤 Nombre:</span>
+              <span class="value">${nombre}</span>
             </div>
-
-            <!-- Mensaje -->
-            <div style="margin-bottom: 30px;">
-              <h3 style="margin: 0 0 15px; color: #1f2937; font-size: 16px; font-weight: 600;">
-                💬 Mensaje:
-              </h3>
-              <div style="background-color: #ffffff; border: 2px solid #e5e7eb; padding: 20px; border-radius: 8px; line-height: 1.6; color: #374151;">
-                ${mensaje.replace(/\n/g, '<br>')}
-              </div>
+            
+            <div class="field">
+              <span class="label">✉️ Email:</span>
+              <a href="mailto:${email}" style="color: #4f46e5;">${email}</a>
             </div>
-
-            <!-- Call to Action -->
-            <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #eff6ff 0%, #f3e8ff 100%); border-radius: 8px;">
-              <p style="margin: 0 0 15px; color: #6b7280; font-size: 14px;">
-                Responde rápidamente para no perder esta oportunidad
-              </p>
-              <a href="mailto:${email}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                📧 Responder al Cliente
-              </a>
+            
+            ${telefono ? `
+            <div class="field">
+              <span class="label">📞 Teléfono:</span>
+              <a href="tel:${telefono}" style="color: #4f46e5;">${telefono}</a>
+            </div>
+            ` : ''}
+            
+            <div class="message-box">
+              <strong>💬 Mensaje:</strong><br><br>
+              ${mensaje.replace(/\n/g, '<br>')}
             </div>
           </div>
-
-          <!-- Footer -->
-          <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-              Este mensaje fue enviado desde el formulario de contacto de <strong>Artesellos.cl</strong>
-            </p>
-            <p style="margin: 8px 0 0; color: #9ca3af; font-size: 12px;">
-              🕒 ${new Date().toLocaleString('es-CL', { 
-                timeZone: 'America/Santiago',
-                dateStyle: 'full',
-                timeStyle: 'short'
-              })}
-            </p>
+          
+          <div class="footer">
+            Mensaje recibido el ${new Date().toLocaleString('es-CL', { 
+              timeZone: 'America/Santiago',
+              dateStyle: 'full',
+              timeStyle: 'short'
+            })}
           </div>
         </div>
       </body>
       </html>
     `;
 
-    // Configurar opciones del email
+    // Configurar email
     const mailOptions = {
       from: `"Formulario Artesellos" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_MAIL_TO || 'contacto@artesellos.cl',
+      to: process.env.CONTACT_MAIL_TO || process.env.SMTP_USER,
       replyTo: email,
-      subject: `💬 Nuevo mensaje de ${nombre} - Artesellos`,
+      subject: `💬 Nuevo mensaje de ${nombre}`,
       html: htmlContent,
       text: `
 Nuevo mensaje de contacto
@@ -154,7 +179,7 @@ ${new Date().toLocaleString('es-CL')}
       `.trim(),
     };
 
-    console.log('📤 Enviando email...');
+    console.log('📤 Enviando email a:', mailOptions.to);
     
     // Enviar email
     const info = await transporter.sendMail(mailOptions);
@@ -169,11 +194,29 @@ ${new Date().toLocaleString('es-CL')}
 
   } catch (error: any) {
     console.error('❌ Error al enviar email:', error);
+    console.error('Detalles completos:', {
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Mensaje de error más específico
+    let errorMessage = 'Error al enviar el mensaje. Por favor intenta nuevamente.';
+    
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Error de autenticación con el servidor de correo.';
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      errorMessage = 'No se pudo conectar al servidor de correo. Verifica tu conexión.';
+    } else if (error.response) {
+      errorMessage = `Error del servidor: ${error.response}`;
+    }
     
     return NextResponse.json(
       {
         success: false,
-        error: 'Error al enviar el mensaje',
+        error: errorMessage,
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }

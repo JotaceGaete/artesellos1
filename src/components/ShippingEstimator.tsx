@@ -1,15 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { formatPrice } from '@/lib/pricingUtils';
 
 interface ShippingEstimatorProps {
   unitPrice: number; // precio unitario final (incluye recargos como tinta)
+  onShippingCalculated?: (shipping: number) => void; // callback para notificar el costo de envío
 }
 
-// Tarifas ejemplo: por comuna específica. Si no está, aplica tarifa por defecto
+// Tarifas de envío
 const DEFAULT_TARIFF = 5000;
 const FREE_THRESHOLD = 50000; // Envío gratis desde $50.000
+const REDUCED_RATE_THRESHOLD = 15000; // Tarifa reducida desde $15.000
+const REDUCED_RATE = 3500; // Costo de envío para pedidos > $15.000
 
 const TARIFAS_POR_COMUNA: Record<string, number> = {
   Rancagua: 6000,
@@ -56,7 +59,7 @@ const CARRIERS: Record<CarrierKey, { name: string; price: number; icon: string }
   },
 };
 
-export default function ShippingEstimator({ unitPrice }: ShippingEstimatorProps) {
+export default function ShippingEstimator({ unitPrice, onShippingCalculated }: ShippingEstimatorProps) {
   const [quantity, setQuantity] = useState<number>(1);
   const [comuna, setComuna] = useState<string>('');
   const [carrier, setCarrier] = useState<CarrierKey>('starken');
@@ -64,7 +67,13 @@ export default function ShippingEstimator({ unitPrice }: ShippingEstimatorProps)
   const subtotal = useMemo(() => unitPrice * quantity, [unitPrice, quantity]);
 
   const shipping = useMemo(() => {
+    // Envío gratis desde $50.000
     if (subtotal >= FREE_THRESHOLD) return 0;
+    
+    // Tarifa reducida de $3.500 para pedidos superiores a $15.000
+    if (subtotal > REDUCED_RATE_THRESHOLD) return REDUCED_RATE;
+    
+    // Para pedidos de $15.000 o menos, usar tarifa normal
     // Si hay tarifa especial por comuna, úsala; si no, usar la del transportista elegido
     const key = (comuna || '').trim();
     if (key) {
@@ -78,16 +87,24 @@ export default function ShippingEstimator({ unitPrice }: ShippingEstimatorProps)
 
   const total = subtotal + shipping;
 
-  const whatsappHref = useMemo(() => {
-    const msg = `Hola, quiero comprar:\n- Producto: Timbre personalizado\n- Cantidad: ${quantity}\n- Comuna: ${comuna || 'por definir'}\n- Subtotal: ${formatPrice(subtotal)}\n- Envío: ${formatPrice(shipping)}\n- Total: ${formatPrice(total)}`;
-    // Número real del negocio
-    const phone = '56922384216';
-    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-  }, [quantity, comuna, subtotal, shipping, total]);
+  // Notificar al componente padre cuando cambie el costo de envío
+  useEffect(() => {
+    if (onShippingCalculated) {
+      onShippingCalculated(shipping);
+    }
+  }, [shipping, onShippingCalculated]);
 
   return (
     <div className="bg-gray-50 p-6 rounded-lg border">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">🚚 Envío</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">🚚 Envío</h3>
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-800">
+          📦 <strong>Tarifas de envío:</strong><br/>
+          • Pedidos hasta $15.000: Costo según transportista<br/>
+          • <strong>Pedidos sobre $15.000: Solo $3.500</strong><br/>
+          • Pedidos sobre $50.000: <strong>¡Envío GRATIS!</strong>
+        </p>
+      </div>
 
       {/* Transportista */}
       <div className="mb-6">
@@ -152,7 +169,9 @@ export default function ShippingEstimator({ unitPrice }: ShippingEstimatorProps)
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-500 mt-1">Envío gratis desde {formatPrice(FREE_THRESHOLD)}.</p>
+        <p className="text-xs text-gray-500 mt-1">
+          💡 Envío ${formatPrice(REDUCED_RATE)} para compras sobre {formatPrice(REDUCED_RATE_THRESHOLD)} • Envío gratis desde {formatPrice(FREE_THRESHOLD)}
+        </p>
       </div>
 
       {/* Resumen */}
@@ -176,18 +195,6 @@ export default function ShippingEstimator({ unitPrice }: ShippingEstimatorProps)
             <span>{formatPrice(total)}</span>
           </div>
         </div>
-      </div>
-
-      {/* CTA */}
-      <div className="mt-4 flex gap-3">
-        <a
-          href={whatsappHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        >
-          Consultar / Comprar por WhatsApp
-        </a>
       </div>
     </div>
   );
