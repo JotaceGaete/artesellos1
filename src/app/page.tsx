@@ -5,8 +5,7 @@ import ProductGrid from '@/components/ProductGrid';
 import ProductCarousel from '@/components/ProductCarousel';
 import Carousel from '@/components/Carousel';
 import Categorias from '@/components/Categorias';
-// Slides ahora se obtienen desde Supabase vía API pública
-import { headers } from 'next/headers';
+// Slides ahora se obtienen desde Supabase directamente (Server Component)
 import { carouselSlides } from '@/lib/carouselData';
 import { supabaseServerUtils } from '@/lib/supabaseUtils';
 import { adaptSupabaseProducts } from '@/lib/productAdapter';
@@ -19,27 +18,9 @@ async function getMyRealProducts() {
 
 async function getSlides() {
   try {
-    // Construir URL absoluta a partir de headers (funciona en dev y prod)
-    const hdrs = await headers();
-    const host = hdrs.get('x-forwarded-host') || hdrs.get('host');
-    const proto = hdrs.get('x-forwarded-proto') || 'http';
-    const base = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || '');
-    const url = `${base}/api/slider`;
-
-    const res = await fetch(url, { 
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
+    const data = await supabaseServerUtils.getSlides();
     
-    const data = await res.json();
-    
-    if (!res.ok || !data.success) {
-      return carouselSlides;
-    }
-    
-    const apiSlides = (data.items || []).map((s: any, i: number) => ({
+    const apiSlides = (data || []).map((s: any, i: number) => ({
       id: i + 1,
       title: s.title,
       subtitle: s.subtitle,
@@ -54,6 +35,7 @@ async function getSlides() {
     return apiSlides.length > 0 ? apiSlides : carouselSlides;
     
   } catch (error) {
+    console.error('Error obteniendo slides:', error);
     return carouselSlides;
   }
 }

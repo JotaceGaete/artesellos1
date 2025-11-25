@@ -77,5 +77,20 @@ export const supabaseServerUtils = {
 
     if (error) throw error;
     return data;
+  },
+
+  async getSlides() {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase
+      .from('slider_slides')
+      .select('*')
+      .eq('active', true)
+      .order('slide_order', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error al obtener slides:', error);
+      return []; // Retornar array vacío en caso de error para no romper la home
+    }
+    return data || [];
   }
 };
