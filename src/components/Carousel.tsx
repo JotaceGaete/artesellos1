@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface CarouselSlide {
   id: number
@@ -65,26 +66,27 @@ export default function Carousel({
       {/* Slides */}
       <div className="flex transition-transform duration-500 ease-in-out"
            style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
-        {slides.map((slide) => (
+        {slides.map((slide, index) => (
           <div
             key={slide.id}
-            className="min-w-full relative"
+            className={`min-w-full relative ${height}`}
           >
-            {/* Background Image - Sin efectos, imagen completa */}
+            {/* Background Image - Optimizado con Next.js Image */}
             {slide.image && (
-              <div 
-                className="w-full h-auto"
-                style={{ 
-                  backgroundImage: `url(${slide.image})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  aspectRatio: 'auto',
-                  minHeight: '300px'
-                }}
-              >
+              <>
+                <Image
+                  src={slide.image}
+                  alt={slide.title}
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
+                  loading={index === 0 ? undefined : "lazy"}
+                  sizes="100vw"
+                />
+                <div className="absolute inset-0 bg-black/20" /> {/* Optional overlay for readability if needed, matching potential previous implicit overlay or just ensuring text contrast */}
+                
                 {/* Content overlay */}
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center z-10">
                   <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                     <div className="space-y-4">
                       <h1 className="text-3xl md:text-5xl font-bold text-white drop-shadow-lg">
@@ -107,12 +109,12 @@ export default function Carousel({
                     </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
             
             {/* Fallback si no hay imagen */}
             {!slide.image && (
-              <div className={`w-full h-64 md:h-80 ${slide.backgroundColor} ${slide.textColor} flex items-center justify-center`}>
+              <div className={`w-full h-full ${slide.backgroundColor} ${slide.textColor} flex items-center justify-center`}>
                 <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                   <div className="space-y-4">
                     <h1 className="text-3xl md:text-5xl font-bold">
