@@ -6,6 +6,7 @@ import ShippingEstimator from '@/components/ShippingEstimator';
 import ProductImageGallery from '@/components/ProductImageGallery';
 import { Product } from '@/types/product';
 import { formatPrice } from '@/lib/pricingUtils';
+import { MessageSquare, Zap, Tag, Clock } from 'lucide-react';
 
 interface ProductPageClientProps {
   product: Product;
@@ -333,9 +334,83 @@ Total: ${formatPrice(totalPrice)}
 
       {/* Product Description */}
       <div className="mt-16 border-t pt-16">
-        <div className="prose prose-gray max-w-none">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Descripción del Producto</h2>
-          <div dangerouslySetInnerHTML={{ __html: product.description }} />
+        <div className="max-w-none">
+          <h2 className="text-2xl font-bold text-gray-900 mb-8">Descripción del Producto</h2>
+          
+          {/* Bloque Destacado de Tecnología */}
+          <div className="bg-indigo-50 rounded-lg p-6 md:p-8 mb-8 border border-indigo-100">
+            <h3 className="text-xl font-bold text-indigo-900 mb-4">
+              Tecnología de Grabado Láser Artesellos: Precisión que se Nota
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Utilizamos tecnología láser de última generación para asegurar un alto relieve en la goma, garantizando una impresión totalmente nítida y limpia sin borrones.
+            </p>
+          </div>
+
+          {/* Lista de Beneficios Clave */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Beneficios de Artesellos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Punto 1: Diseño */}
+              <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="flex-shrink-0 mt-1">
+                  <MessageSquare className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-gray-800 font-medium">
+                    Diseño de Borrador Previo por WhatsApp para tu aprobación
+                  </p>
+                </div>
+              </div>
+
+              {/* Punto 2: Garantía */}
+              <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="flex-shrink-0 mt-1">
+                  <Zap className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-gray-800 font-medium">
+                    Goma grabada con precisión para una impresión duradera
+                  </p>
+                </div>
+              </div>
+
+              {/* Punto 3: Costo */}
+              <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="flex-shrink-0 mt-1">
+                  <Tag className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-gray-800 font-medium">
+                    Sin costo adicional por la inclusión de logos
+                  </p>
+                </div>
+              </div>
+
+              {/* Punto 4: Experiencia */}
+              <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="flex-shrink-0 mt-1">
+                  <Clock className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-gray-800 font-medium">
+                    Casi 30 años de experiencia en la fabricación de timbres
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Descripción del Producto (contenido HTML) */}
+          <div className="prose prose-gray max-w-none">
+            <div 
+              className="space-y-4"
+              dangerouslySetInnerHTML={{ __html: product.description }}
+              style={{
+                lineHeight: '1.75',
+              }}
+            />
+          </div>
         </div>
       </div>
 

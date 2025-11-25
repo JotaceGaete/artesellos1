@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 
-// Cliente Supabase
+// Cliente Supabase (para búsqueda de productos)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

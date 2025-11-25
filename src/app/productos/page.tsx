@@ -108,11 +108,13 @@ export default function ProductosPage() {
 
   useEffect(() => {
     loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     loadProducts();
     setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
 
   const loadCategories = async () => {

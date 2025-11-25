@@ -14,7 +14,21 @@ export async function GET(req: NextRequest) {
       .select('id')
       .limit(1);
 
-    const diagnostics = {
+    interface Diagnostics {
+      supabase_configured: boolean;
+      table_exists: boolean;
+      table_error: {
+        message: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      } | null;
+      sample_query_works: boolean;
+      record_count: number | null;
+      count_error: string | null;
+    }
+
+    const diagnostics: Diagnostics = {
       supabase_configured: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       table_exists: !tableError,
       table_error: tableError ? {
@@ -24,6 +38,8 @@ export async function GET(req: NextRequest) {
         code: tableError.code
       } : null,
       sample_query_works: !tableError && tableCheck !== null,
+      record_count: null,
+      count_error: null,
     };
 
     // Intentar contar registros
@@ -32,7 +48,7 @@ export async function GET(req: NextRequest) {
         .from('knowledge_base')
         .select('*', { count: 'exact', head: true });
       
-      diagnostics.record_count = countError ? null : count;
+      diagnostics.record_count = countError ? null : (count ?? null);
       diagnostics.count_error = countError ? countError.message : null;
     }
 
