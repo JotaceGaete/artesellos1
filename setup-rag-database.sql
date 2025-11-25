@@ -55,7 +55,18 @@ BEGIN
 END;
 $$;
 
--- PASO 5: Crear trigger para actualizar updated_at automáticamente
+-- PASO 5: Configurar Row Level Security (RLS)
+-- Deshabilitar RLS para permitir acceso desde el service role
+ALTER TABLE knowledge_base DISABLE ROW LEVEL SECURITY;
+
+-- O si prefieres mantener RLS habilitado, crear una política que permita todo al service role:
+-- ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Allow service role full access" ON knowledge_base
+--   FOR ALL
+--   USING (true)
+--   WITH CHECK (true);
+
+-- PASO 6: Crear trigger para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -35,7 +35,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
 
   // Helper para sanear URLs de imagen
   const getSafeImageUrl = (rawUrl?: string) => {
-    const placeholder = '/placeholder-product.jpg';
+    const placeholder = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
     if (!rawUrl || typeof rawUrl !== 'string') return placeholder;
     const url = rawUrl.trim();
     if (!url) return placeholder;
@@ -72,7 +72,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             }`}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.src = 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80';
+              target.src = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
             }}
           />
           

@@ -732,7 +732,7 @@ export default function CheckoutPage() {
                 <div key={item.product.id} className="flex items-center gap-4">
                   <div className="relative w-16 h-16 flex-shrink-0">
                     <Image
-                      src={item.product.images[0]?.src || '/placeholder-product.jpg'}
+                      src={item.product.images[0]?.src || 'https://media.artesellos.cl/sin-image-producto-artesellos.png'}
                       alt={item.product.name}
                       fill
                       className="object-cover rounded-lg"

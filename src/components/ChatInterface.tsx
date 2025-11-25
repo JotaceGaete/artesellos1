@@ -266,8 +266,7 @@ export default function ChatInterface() {
           {/* Header con botón de WhatsApp */}
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <h2 className="text-white font-bold">Artesellos Bot</h2>
+              <h2 className="text-white font-bold">Estoy para ayudarte ¡¡</h2>
             </div>
             
             {/* Botón de WhatsApp */}

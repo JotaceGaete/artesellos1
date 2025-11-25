@@ -3,7 +3,7 @@ import { Product as SupabaseProduct } from '@/lib/supabase';
 
 // Resolver de URLs de imágenes: soporta URLs absolutas o claves (keys) de R2/CDN
 function resolveAssetUrl(raw?: string): string {
-  const placeholder = 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80';
+  const placeholder = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
   if (!raw || typeof raw !== 'string') return placeholder;
   const value = raw.trim();
   if (!value) return placeholder;
@@ -113,7 +113,7 @@ function adaptImages(images: any, productId: string): MockProduct['images'] {
   if (!images || (Array.isArray(images) && images.length === 0)) {
     return [{
       id: 1,
-      src: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80',
+      src: 'https://media.artesellos.cl/sin-image-producto-artesellos.png',
       name: 'Imagen del producto',
       alt: 'Imagen del producto'
     }];
@@ -219,7 +219,7 @@ function adaptImages(images: any, productId: string): MockProduct['images'] {
   console.warn('⚠️ Formato de imagen no reconocido, usando placeholder');
   return [{
     id: 1,
-    src: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80',
+    src: 'https://media.artesellos.cl/sin-image-producto-artesellos.png',
     name: 'Imagen del producto',
     alt: 'Imagen del producto'
   }];

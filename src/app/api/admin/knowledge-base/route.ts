@@ -25,21 +25,33 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const { data, error } = await supabase
+    // Consultar solo las columnas que sabemos que existen
+    // Intentar con created_at, si falla, usar solo id y content
+    let query = (supabase as any)
       .from('knowledge_base')
-      .select('id, content, created_at, updated_at')
-      .order('created_at', { ascending: false })
+      .select('id, content')
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('❌ Error al listar conocimiento:', error);
-      return NextResponse.json({ message: error.message }, { status: 500 });
+      console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        message: error.message || 'Error al cargar fragmentos',
+        details: error.details || error.hint || null
+      }, { status: 500 });
     }
 
     // Obtener total para paginación
-    const { count } = await supabase
+    const { count, error: countError } = await (supabase as any)
       .from('knowledge_base')
       .select('*', { count: 'exact', head: true });
+
+    if (countError) {
+      console.warn('⚠️ Error al obtener count:', countError);
+    }
 
     return NextResponse.json({
       items: data || [],
@@ -168,13 +180,20 @@ export async function PUT(req: NextRequest) {
     const embedding = embeddingResponse.data[0].embedding;
 
     const supabase = createSupabaseAdmin();
-    const { data, error } = await supabase
+    
+    // Construir objeto de actualización - solo content y embedding
+    // NO incluir updated_at ya que la columna no existe en la tabla
+    const updateData = {
+      content: content.trim(),
+      embedding: embedding,
+    };
+    
+    console.log('🔄 Actualizando fragmento ID:', id);
+    console.log('📝 Contenido:', content.substring(0, 50) + '...');
+    
+    const { data, error } = await (supabase as any)
       .from('knowledge_base')
-      .update({
-        content: content.trim(),
-        embedding,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select('id, content')
       .single();

@@ -33,11 +33,12 @@ async function getQueryEmbedding(query: string): Promise<number[]> {
  */
 export async function findRelevantContext(
   query: string,
-  match_threshold: number = 0.7,
-  match_count: number = 5
+  match_threshold: number = 0.3,
+  match_count: number = 10
 ): Promise<string[]> {
   try {
     console.log('🔍 Iniciando búsqueda RAG para:', query);
+    console.log('📊 Parámetros:', { match_threshold, match_count });
 
     // Paso 1: Vectorizar la consulta
     const queryEmbedding = await getQueryEmbedding(query);
@@ -46,51 +47,58 @@ export async function findRelevantContext(
     // Paso 2: Búsqueda en Supabase usando pg_vector
     const supabase = createSupabaseAdmin();
 
-    // Usar la función RPC de Supabase para búsqueda de similitud de coseno
-    // Asumiendo que existe una función SQL en Supabase llamada 'match_knowledge_base'
-    // Si no existe, usaremos una consulta directa con el operador de similitud
-    const { data, error } = await supabase.rpc('match_knowledge_base', {
+    // Intentar primero con la función RPC
+    const { data: rpcData, error: rpcError } = await supabase.rpc('match_knowledge_base', {
       query_embedding: queryEmbedding,
       match_threshold: match_threshold,
       match_count: match_count,
     });
 
-    if (error) {
-      // Si la función RPC no existe, intentar con consulta directa
-      console.warn('⚠️ Función RPC no encontrada, intentando consulta directa:', error.message);
-      
-      // Alternativa: consulta directa usando el operador de similitud de pg_vector
-      // Nota: Esto requiere que la tabla tenga un índice vectorial configurado
-      const { data: directData, error: directError } = await supabase
-        .from('knowledge_base')
-        .select('content, embedding')
-        .limit(match_count);
-
-      if (directError) {
-        console.error('❌ Error en consulta directa:', directError);
-        // Calcular similitud manualmente si es necesario
-        return await findRelevantContextManual(queryEmbedding, match_threshold, match_count);
-      }
-
-      // Calcular similitud de coseno manualmente
-      const results = await calculateCosineSimilarity(
-        queryEmbedding,
-        directData || [],
-        match_threshold,
-        match_count
-      );
-
-      console.log('✅ Resultados encontrados:', results.length);
-      return results.map((item: any) => item.content);
-    }
-
-    // Si la función RPC funcionó, extraer el contenido
-    if (data && Array.isArray(data)) {
-      const contents = data.map((item: any) => item.content || item);
+    if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+      const contents = rpcData.map((item: any) => item.content || item);
       console.log('✅ Resultados RPC encontrados:', contents.length);
+      console.log('📝 Primer resultado:', contents[0]?.substring(0, 100) + '...');
       return contents;
     }
 
+    // Si la función RPC falla o no devuelve resultados, usar cálculo manual
+    if (rpcError) {
+      console.warn('⚠️ Función RPC no disponible o error:', rpcError.message);
+    } else {
+      console.warn('⚠️ Función RPC no devolvió resultados con umbral', match_threshold);
+    }
+
+    console.log('🔄 Intentando búsqueda manual con umbral reducido...');
+    
+    // Intentar con umbral más bajo si no hay resultados
+    const manualResults = await findRelevantContextManual(queryEmbedding, match_threshold, match_count);
+    
+    if (manualResults.length > 0) {
+      console.log('✅ Resultados manuales encontrados:', manualResults.length);
+      return manualResults;
+    }
+
+    // Si aún no hay resultados, intentar con umbral muy bajo
+    if (match_threshold > 0.1) {
+      console.log('🔄 Intentando con umbral muy bajo (0.1)...');
+      const veryLowThresholdResults = await findRelevantContextManual(queryEmbedding, 0.1, match_count);
+      
+      if (veryLowThresholdResults.length > 0) {
+        console.log('✅ Resultados con umbral muy bajo encontrados:', veryLowThresholdResults.length);
+        return veryLowThresholdResults;
+      }
+    }
+
+    // Si aún no hay resultados, devolver los mejores aunque estén por debajo del umbral
+    console.log('🔄 Devolviendo mejores resultados disponibles (sin filtro de umbral)...');
+    const allResults = await findRelevantContextManual(queryEmbedding, 0, match_count);
+    
+    if (allResults.length > 0) {
+      console.log('✅ Devolviendo', allResults.length, 'mejores resultados disponibles');
+      return allResults;
+    }
+
+    console.log('ℹ️ No se encontraron resultados en la base de conocimiento');
     return [];
   } catch (error: any) {
     console.error('❌ Error en findRelevantContext:', error);
@@ -118,7 +126,9 @@ async function calculateCosineSimilarity(
     // Calcular similitud de coseno
     const similarity = cosineSimilarity(queryEmbedding, candidate.embedding);
 
-    if (similarity >= threshold) {
+    // Si threshold es 0, incluir todos los resultados
+    // Si threshold > 0, solo incluir los que superen el umbral
+    if (threshold === 0 || similarity >= threshold) {
       results.push({
         content: candidate.content,
         similarity,
@@ -166,10 +176,10 @@ async function findRelevantContextManual(
 ): Promise<string[]> {
   try {
     const supabase = createSupabaseAdmin();
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('knowledge_base')
       .select('content, embedding')
-      .limit(100); // Obtener más candidatos para filtrar
+      .limit(200); // Obtener más candidatos para filtrar
 
     if (error) {
       console.error('❌ Error al obtener datos de knowledge_base:', error);
@@ -181,13 +191,48 @@ async function findRelevantContextManual(
       return [];
     }
 
+    // Filtrar solo los que tienen embedding válido
+    const validData = data.filter((item: any) => 
+      item.embedding && 
+      Array.isArray(item.embedding) && 
+      item.embedding.length > 0
+    );
+
+    console.log(`📊 Analizando ${validData.length} candidatos válidos (de ${data.length} total) con umbral ${match_threshold}`);
+
+    if (validData.length === 0) {
+      console.warn('⚠️ No hay fragmentos con embeddings válidos en la base de datos');
+      return [];
+    }
+
     // Calcular similitud para cada candidato
     const results = await calculateCosineSimilarity(
       queryEmbedding,
-      data as Array<{ content: string; embedding: number[] }>,
+      validData as Array<{ content: string; embedding: number[] }>,
       match_threshold,
       match_count
     );
+
+    if (results.length > 0) {
+      console.log(`✅ Encontrados ${results.length} resultados con similitud >= ${match_threshold}`);
+      console.log('📊 Similitudes:', results.map(r => `${r.similarity.toFixed(3)}`).join(', '));
+      console.log('📝 Primer resultado:', results[0].content.substring(0, 100) + '...');
+    } else {
+      console.log(`ℹ️ No se encontraron resultados con similitud >= ${match_threshold}`);
+      if (validData.length > 0) {
+        // Calcular similitud de todos para ver qué tan cerca están
+        const allResults = await calculateCosineSimilarity(
+          queryEmbedding,
+          validData as Array<{ content: string; embedding: number[] }>,
+          0,
+          match_count
+        );
+        if (allResults.length > 0) {
+          console.log('📊 Mejores similitudes encontradas (sin umbral):', 
+            allResults.slice(0, 5).map(r => `${r.similarity.toFixed(3)}`).join(', '));
+        }
+      }
+    }
 
     return results.map((item) => item.content);
   } catch (error) {

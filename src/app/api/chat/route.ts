@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { findRelevantContext } from '@/lib/vectorSearch';
+import { createSupabaseAdmin } from '@/lib/supabaseServer';
 
 // Cliente Supabase
 const supabase = createClient(
@@ -51,96 +52,181 @@ export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
     
-    const systemPrompt = `Eres un asistente experto de Artesellos, especialista en timbres personalizados.
-    
-INFORMACIÓN DEL NEGOCIO:
-- Ubicación: Centro de Santiago, Providencia, Chile
-- Horarios: Lunes a Viernes 9:00-18:00, Sábados 10:00-14:00
-- Contacto: WhatsApp disponible para consultas rápidas
-- Email: contacto@artesellos.cl
-- Envíos a todo Chile
-
-⚠️ IMPORTANTE SOBRE STOCK:
-- Las cantidades mostradas son para COMPRA ONLINE inmediata
-- SIEMPRE menciona: "Nuestra tienda física cuenta con mayor stock disponible"
-- Para pedidos grandes o consultas especiales, invita a contactar directamente
-- NO reveles el stock exacto total del negocio por razones de competencia
-
-MARCAS DISPONIBLES:
-- **Shiny**: Marca premium de timbres (ej: Shiny 722, Shiny 829)
-- **Trodat**: Marca reconocida mundialmente (ej: Trodat 4912)
-- **Automatik**: Marca especializada en timbres automáticos (¡NO confundir con "automáticos"!)
-
-PRODUCTOS PRINCIPALES:
-- Shiny 722: Modelo de bolsillo (14x38mm), ideal para profesionales
-- Trodat 4912: Timbre automático estándar
-- Automatik: Línea completa de timbres automáticos
-- Personalizaciones con diseños custom
-
-⚠️ IMPORTANTE: "Automatik" es el NOMBRE DE UNA MARCA, no un tipo de timbre.
-
-IMPORTANTE: Cuando el usuario pregunte por un producto específico, DEBES usar la función consultarStock para obtener información real del inventario.
-
-💸 REGLA DE COBRO Y PAGOS (CRÍTICO - VALIDAR STOCK):
-
-⚠️ ANTES DE CALCULAR CUALQUIER TOTAL, DEBES VERIFICAR EL STOCK DISPONIBLE.
-
-Si el cliente confirma que quiere comprar una cantidad específica (ej: "quiero 100 de esos"):
-
-**PASO 1: VALIDAR STOCK**
-- Verifica cuántas unidades hay disponibles
-- Si la cantidad solicitada > stock disponible:
-  ❌ NO GENERES EL LINK DE PAGO
-  ✅ Informa: "Lo siento, actualmente tenemos solo [X] unidades disponibles del [PRODUCTO]."
-  ✅ Ofrece: "¿Te gustaría comprar las [X] unidades disponibles o prefieres consultar por otros modelos?"
-
-**PASO 2: SI HAY STOCK SUFICIENTE**
-1. Calcula el total (Precio Unitario x Cantidad).
-2. Genera el link de pago con este formato EXACTO:
-   https://artesellos.cl/pagar?monto=[MONTO_TOTAL]&detalle=[CANTIDAD]_x_[NOMBRE_PRODUCTO]
-
-Ejemplo con stock suficiente:
-Usuario: "Quiero 2 Shiny 722"
-Stock disponible: 15 unidades
-Precio: $15.000 c/u
-Respuesta: "¡Perfecto! Tenemos stock disponible. El total por los 2 Shiny 722 es de **$30.000**.
-
-Para finalizar, ingresa aquí para ver los datos de transferencia o pagar con tarjeta:
-👉 [Ir a Pagar](https://artesellos.cl/pagar?monto=30000&detalle=2_x_Shiny_722)"
-
-Ejemplo con stock insuficiente:
-Usuario: "Quiero 100 Trodat 4912"
-Stock disponible: 8 unidades
-Respuesta: "Lo siento, actualmente tenemos solo **8 unidades** disponibles del Trodat 4912. ¿Te gustaría comprar las 8 unidades disponibles ($[PRECIO_TOTAL]) o prefieres consultar por otros modelos similares?"
-
-Tu trabajo es ayudar a los clientes con:
-- Información sobre modelos de timbres (USA consultarStock)
-- Características y medidas
-- Procesos de personalización
-- Información de envíos
-- Horarios y contacto
-- Generar links de pago cuando el cliente confirme la compra
-
-Sé amable, profesional y servicial.`;
+    // System Prompt base - Solo se usa cuando NO hay contexto RAG
+    const baseSystemPrompt = `Eres un asistente de ventas de Artesellos. Si no tienes información específica en el contexto proporcionado, responde: "Lamento, no tengo esa información específica en nuestra base de datos, por favor contáctanos por WhatsApp para obtener ayuda."`;
 
     const lastMessage = messages[messages.length - 1]?.content || '';
     console.log('📨 Mensaje recibido:', lastMessage);
 
     // RAG: Buscar contexto relevante en la base de conocimiento
     let ragContext = '';
+    let hasRAGContext = false;
     try {
-      const relevantContexts = await findRelevantContext(lastMessage, 0.7, 5);
+      // Usar umbral muy bajo (0.3) para capturar información relacionada
+      const relevantContexts = await findRelevantContext(lastMessage, 0.3, 10);
       if (relevantContexts.length > 0) {
-        ragContext = '\n\n📚 CONTEXTO RELEVANTE DE LA BASE DE CONOCIMIENTO:\n\n' + 
-                     relevantContexts.join('\n\n---\n\n') + 
-                     '\n\n⚠️ IMPORTANTE: Responde la siguiente pregunta basándote SOLO en el contexto proporcionado arriba y en la información del sistema.';
+        hasRAGContext = true;
+        ragContext = relevantContexts.join('\n\n---\n\n');
         console.log('✅ Contexto RAG recuperado:', relevantContexts.length, 'fragmentos');
       } else {
-        console.log('ℹ️ No se encontró contexto relevante en la base de conocimiento');
+        console.log('ℹ️ Búsqueda vectorial no encontró resultados, intentando búsqueda por palabras clave...');
+        
+        // FALLBACK: Búsqueda por palabras clave si la búsqueda vectorial falla
+        console.log('🔄 Iniciando búsqueda por palabras clave como fallback...');
+        const supabase = createSupabaseAdmin();
+        const normalizedQuery = lastMessage.toLowerCase();
+        
+        // Extraer palabras clave importantes (eliminar palabras comunes)
+        // NOTA: No eliminar "mi" y "tu" ya que pueden ser relevantes para búsquedas personales
+        const stopWords = ['que', 'cual', 'donde', 'cuando', 'como', 'por', 'para', 'con', 'de', 'la', 'el', 'los', 'las', 'un', 'una', 'es', 'son', 'está', 'están', 'tiene', 'tienen', 'su', 'sus', 'nuestro', 'nuestra', 'tienes'];
+        const keywords = normalizedQuery
+          .split(/\s+/)
+          .filter(word => word.length > 1 && !stopWords.includes(word.toLowerCase()))
+          .map(word => word.replace(/[.,!?;:]/g, '').toLowerCase()); // Limpiar puntuación y normalizar
+        
+        console.log('🔍 Palabras clave extraídas:', keywords);
+        console.log('📝 Consulta normalizada:', normalizedQuery);
+        
+        if (keywords.length > 0) {
+          // Buscar fragmentos que contengan alguna de las palabras clave
+          // IMPORTANTE: Supabase puede tener problemas con .or() con múltiples condiciones
+          // Intentar búsqueda alternativa si falla
+          let keywordResults: any[] | null = null;
+          let keywordError: any = null;
+          
+          try {
+            const keywordConditions = keywords.map(keyword => `content.ilike.%${keyword}%`).join(',');
+            console.log('🔍 Condiciones de búsqueda:', keywordConditions);
+            
+            const { data, error } = await (supabase as any)
+              .from('knowledge_base')
+              .select('content')
+              .or(keywordConditions)
+              .limit(10);
+            
+            keywordResults = data;
+            keywordError = error;
+          } catch (err: any) {
+            console.error('❌ Error en consulta .or():', err);
+            keywordError = err;
+          }
+          
+          // Si .or() falla o no encuentra resultados, intentar búsqueda alternativa
+          if ((keywordError || !keywordResults || keywordResults.length === 0) && keywords.length > 0) {
+            console.log('🔄 .or() falló o sin resultados, intentando búsqueda alternativa por cada palabra...');
+            try {
+              // Buscar con cada palabra clave por separado y combinar resultados
+              const allResults: any[] = [];
+              for (const keyword of keywords) {
+                const { data, error } = await (supabase as any)
+                  .from('knowledge_base')
+                  .select('content')
+                  .ilike('content', `%${keyword}%`)
+                  .limit(20);
+                
+                if (!error && data) {
+                  allResults.push(...data);
+                  console.log(`  ✅ Encontrados ${data.length} fragmentos con "${keyword}"`);
+                }
+              }
+              
+              // Eliminar duplicados basándose en el contenido
+              keywordResults = Array.from(
+                new Map(allResults.map((item: any) => [item.content, item])).values()
+              );
+              keywordError = null;
+              console.log('✅ Búsqueda alternativa exitosa:', keywordResults.length, 'resultados únicos');
+            } catch (altErr: any) {
+              console.error('❌ Error en búsqueda alternativa:', altErr);
+              if (!keywordError) keywordError = altErr;
+            }
+          }
+          
+          console.log('📊 Resultados de búsqueda por palabras clave:', {
+            encontrados: keywordResults?.length || 0,
+            error: keywordError?.message || null,
+          });
+          
+          if (keywordError) {
+            console.error('❌ Error en búsqueda por palabras clave:', keywordError);
+          }
+          
+          if (!keywordError && keywordResults && keywordResults.length > 0) {
+            // Eliminar duplicados basándose en el contenido
+            const uniqueResults = Array.from(
+              new Map(keywordResults.map((item: any) => [item.content, item])).values()
+            );
+            
+            hasRAGContext = true;
+            ragContext = uniqueResults.map((item: any) => item.content).join('\n\n---\n\n');
+            console.log('✅ Contexto recuperado por palabras clave:', uniqueResults.length, 'fragmentos únicos (de', keywordResults.length, 'totales)');
+            console.log('📝 Fragmentos encontrados:', uniqueResults.map((r: any, i: number) => `${i + 1}. ${r.content.substring(0, 100)}...`));
+            console.log('📄 Contexto completo que se enviará (primeros 500 chars):', ragContext.substring(0, 500) + (ragContext.length > 500 ? '...' : ''));
+          } else {
+            console.log('ℹ️ Búsqueda por palabras clave no encontró resultados');
+            console.log('📊 Resultados recibidos:', keywordResults?.length || 0);
+            console.log('📊 Tipo de resultados:', Array.isArray(keywordResults) ? 'Array' : typeof keywordResults);
+            if (keywordError) {
+              console.error('❌ Error detallado:', keywordError);
+              console.error('❌ Código de error:', keywordError.code);
+              console.error('❌ Mensaje:', keywordError.message);
+            }
+            
+            // Si no hay resultados pero hay palabras clave, intentar búsqueda más amplia
+            if (keywords.length > 0 && (!keywordResults || keywordResults.length === 0)) {
+              console.log('🔄 Intentando búsqueda más amplia (cualquier palabra)...');
+              // Buscar fragmentos que contengan CUALQUIERA de las palabras (más permisivo)
+              const { data: broadResults, error: broadError } = await (supabase as any)
+                .from('knowledge_base')
+                .select('content')
+                .limit(50); // Obtener más resultados para filtrar
+              
+              if (!broadError && broadResults && broadResults.length > 0) {
+                // Filtrar manualmente los que contengan alguna palabra clave
+                const filtered = broadResults.filter((item: any) => 
+                  keywords.some(keyword => 
+                    item.content.toLowerCase().includes(keyword.toLowerCase())
+                  )
+                );
+                
+                if (filtered.length > 0) {
+                  hasRAGContext = true;
+                  ragContext = filtered.map((item: any) => item.content).join('\n\n---\n\n');
+                  console.log('✅ Contexto recuperado con búsqueda amplia:', filtered.length, 'fragmentos');
+                }
+              }
+            }
+          }
+        } else {
+          console.log('⚠️ No se pudieron extraer palabras clave de la consulta');
+        }
+        
+        // Si aún no hay resultados, intentar búsqueda vectorial sin umbral
+        if (!hasRAGContext) {
+          console.log('🔄 Intentando búsqueda vectorial sin umbral...');
+          const allContexts = await findRelevantContext(lastMessage, 0, 10);
+          if (allContexts.length > 0) {
+            hasRAGContext = true;
+            ragContext = allContexts.join('\n\n---\n\n');
+            console.log('✅ Contexto recuperado sin umbral:', allContexts.length, 'fragmentos');
+          }
+        }
       }
     } catch (error) {
       console.error('⚠️ Error al recuperar contexto RAG:', error);
       // Continuar sin contexto RAG si hay error
+    }
+
+    // Log final del estado de RAG
+    console.log('📊 ESTADO FINAL RAG:', {
+      hasRAGContext,
+      ragContextLength: ragContext.length,
+      ragContextPreview: ragContext.substring(0, 300) + (ragContext.length > 300 ? '...' : ''),
+      willUseRAG: hasRAGContext && ragContext.length > 0,
+    });
+    
+    if (!hasRAGContext || ragContext.length === 0) {
+      console.warn('⚠️ ADVERTENCIA: No hay contexto RAG disponible. El chatbot responderá con mensaje de fallback.');
     }
 
     // Normalizar variantes de marcas (corregir errores comunes)
@@ -276,11 +362,45 @@ Sé amable, profesional y servicial.`;
           responseContent = formatProductResults(data);
         }
       } else {
-        // Si no encontramos, usar OpenAI como fallback con RAG
-        const enhancedSystemPrompt = ragContext 
-          ? `${systemPrompt}\n\n${ragContext}\n\nPregunta del usuario: ${lastMessage}\n\nResponde basándote SOLO en el contexto proporcionado arriba.`
-          : systemPrompt + stockInfo;
+        // Si no encontramos productos, usar OpenAI con RAG
+        let enhancedSystemPrompt = '';
         
+        if (hasRAGContext && ragContext) {
+          console.log('📝 Construyendo System Prompt con contexto RAG (ruta sin productos)');
+          console.log('📊 Longitud del contexto:', ragContext.length, 'caracteres');
+          console.log('📄 Preview del contexto:', ragContext.substring(0, 200) + '...');
+          // System Prompt restrictivo usando SOLO contexto RAG
+          enhancedSystemPrompt = `Eres un asistente de ventas de Artesellos, experto en sus políticas de productos, envíos, y pagos. Tu única fuente de verdad es la sección de 'CONTEXTO PROPORCIONADO' que se encuentra a continuación.
+
+- **INSTRUCCIONES IMPORTANTES:**
+  1. Responde la pregunta del usuario usando SOLO la información del 'CONTEXTO PROPORCIONADO'.
+  2. Puedes hacer conexiones semánticas: si el contexto menciona "mi caballo" y el usuario pregunta sobre "tu caballo", son la misma cosa. Si menciona "colores de tinta" y el usuario pregunta "qué tintas tienen", es lo mismo.
+  3. Adapta el lenguaje del contexto a la pregunta del usuario de forma natural.
+  4. Si la información en el contexto es relevante para la pregunta (aunque use palabras ligeramente diferentes), úsala para responder.
+  5. Solo si la pregunta NO tiene NADA que ver con el contexto proporcionado, responde: 'Lamento, no tengo esa información específica en nuestra base de datos, por favor contáctanos por WhatsApp para obtener ayuda.'
+
+- **REGLA DE FORMATO:** No menciones que utilizaste una base de datos o que tienes un 'contexto'. Simplemente responde la pregunta de forma natural y amigable, como si supieras esa información de memoria.
+
+---
+
+CONTEXTO PROPORCIONADO:
+${ragContext}
+
+---
+
+PREGUNTA DEL USUARIO: ${lastMessage}
+
+Responde de forma natural usando la información del contexto:`;
+          console.log('✅ System Prompt construido con contexto RAG');
+        } else {
+          console.log('⚠️ No hay contexto RAG disponible, usando prompt base');
+          // Si no hay contexto RAG, usar prompt base restrictivo
+          enhancedSystemPrompt = `${baseSystemPrompt}
+
+PREGUNTA DEL USUARIO: ${lastMessage}`;
+        }
+        
+        console.log('🤖 Enviando a OpenAI con System Prompt de', enhancedSystemPrompt.length, 'caracteres');
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [
@@ -295,9 +415,40 @@ Sé amable, profesional y servicial.`;
       }
     } else {
       // Consulta normal con OpenAI y RAG
-      const enhancedSystemPrompt = ragContext 
-        ? `${systemPrompt}\n\n${ragContext}\n\nPregunta del usuario: ${lastMessage}\n\nResponde basándote SOLO en el contexto proporcionado arriba.`
-        : systemPrompt + stockInfo;
+      let enhancedSystemPrompt = '';
+      
+      if (hasRAGContext && ragContext) {
+        console.log('📝 Construyendo System Prompt con contexto RAG');
+        console.log('📊 Longitud del contexto:', ragContext.length, 'caracteres');
+        // System Prompt restrictivo usando SOLO contexto RAG
+          enhancedSystemPrompt = `Eres un asistente de ventas de Artesellos, experto en sus políticas de productos, envíos, y pagos. Tu única fuente de verdad es la sección de 'CONTEXTO PROPORCIONADO' que se encuentra a continuación.
+
+- **INSTRUCCIONES IMPORTANTES:**
+  1. Responde la pregunta del usuario usando SOLO la información del 'CONTEXTO PROPORCIONADO'.
+  2. Puedes hacer conexiones semánticas: si el contexto menciona "mi caballo" y el usuario pregunta sobre "tu caballo", son la misma cosa. Si menciona "colores de tinta" y el usuario pregunta "qué tintas tienen", es lo mismo.
+  3. Adapta el lenguaje del contexto a la pregunta del usuario de forma natural.
+  4. Si la información en el contexto es relevante para la pregunta (aunque use palabras ligeramente diferentes), úsala para responder.
+  5. Solo si la pregunta NO tiene NADA que ver con el contexto proporcionado, responde: 'Lamento, no tengo esa información específica en nuestra base de datos, por favor contáctanos por WhatsApp para obtener ayuda.'
+
+- **REGLA DE FORMATO:** No menciones que utilizaste una base de datos o que tienes un 'contexto'. Simplemente responde la pregunta de forma natural y amigable, como si supieras esa información de memoria.
+
+---
+
+CONTEXTO PROPORCIONADO:
+${ragContext}
+
+---
+
+PREGUNTA DEL USUARIO: ${lastMessage}
+
+Responde de forma natural usando la información del contexto:`;
+        console.log('✅ System Prompt construido con contexto RAG');
+      } else {
+        // Si no hay contexto RAG, usar prompt base restrictivo
+        enhancedSystemPrompt = `${baseSystemPrompt}
+
+PREGUNTA DEL USUARIO: ${lastMessage}`;
+      }
       
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',

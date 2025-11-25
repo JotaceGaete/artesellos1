@@ -110,7 +110,7 @@ export default function MiTienda() {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80';
+                        target.src = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
                       }}
                     />
                   ) : (

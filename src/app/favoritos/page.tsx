@@ -86,7 +86,7 @@ export default function FavoritosPage() {
               <Link href={`/producto/${product.slug}`}>
                 <div className="relative bg-gray-100 flex items-center justify-center" style={{ height: '260px' }}>
                   <Image
-                    src={product.images[0]?.src || '/placeholder-product.jpg'}
+                    src={product.images[0]?.src || 'https://media.artesellos.cl/sin-image-producto-artesellos.png'}
                     alt={product.images[0]?.alt || product.name}
                     fill
                     className="object-contain"

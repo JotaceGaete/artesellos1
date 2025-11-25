@@ -20,7 +20,7 @@ export function adaptSupabaseProductSimple(supabaseProduct: any) {
       id: 1,
       src: typeof supabaseProduct.images === 'string' 
         ? supabaseProduct.images 
-        : 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop&q=80',
+        : 'https://media.artesellos.cl/sin-image-producto-artesellos.png',
       name: 'Imagen del producto',
       alt: supabaseProduct.name || 'Imagen del producto'
     }],

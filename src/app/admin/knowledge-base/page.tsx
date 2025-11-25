@@ -7,8 +7,8 @@ import { Plus, Trash2, Edit2, Database, Loader2, CheckCircle2, XCircle } from 'l
 interface KnowledgeItem {
   id: number;
   content: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export default function KnowledgeBasePage() {
@@ -20,6 +20,7 @@ export default function KnowledgeBasePage() {
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [newContent, setNewContent] = useState('');
   const [isPopulating, setIsPopulating] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   useEffect(() => {
     loadItems();
@@ -30,13 +31,16 @@ export default function KnowledgeBasePage() {
       setLoading(true);
       setError(null);
       const response = await fetch('/api/admin/knowledge-base');
-      if (!response.ok) {
-        throw new Error('Error al cargar fragmentos');
-      }
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al cargar fragmentos');
+      }
+      
       setItems(data.items || []);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Error al cargar items:', err);
+      setError(err.message || 'Error al cargar fragmentos');
     } finally {
       setLoading(false);
     }
@@ -153,6 +157,32 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  const handleRegenerateEmbeddings = async () => {
+    if (!confirm('¿Deseas regenerar los embeddings de todos los fragmentos? Esto puede tomar varios minutos y consumirá créditos de OpenAI.')) {
+      return;
+    }
+
+    try {
+      setIsRegenerating(true);
+      setError(null);
+      const response = await fetch('/api/admin/knowledge-base/regenerate-embeddings', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Error al regenerar embeddings');
+      }
+
+      setSuccess(`Embeddings regenerados: ${data.processed} fragmentos procesados exitosamente`);
+      setTimeout(() => setSuccess(null), 8000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   const startEdit = (item: KnowledgeItem) => {
     setIsEditing(item.id);
     setNewContent(item.content);
@@ -178,8 +208,26 @@ export default function KnowledgeBasePage() {
           </div>
           <div className="flex items-center space-x-3">
             <button
+              onClick={handleRegenerateEmbeddings}
+              disabled={isRegenerating || isPopulating}
+              className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Regenera los embeddings para todos los fragmentos que no los tienen"
+            >
+              {isRegenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Regenerando...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4 mr-2" />
+                  Regenerar Embeddings
+                </>
+              )}
+            </button>
+            <button
               onClick={handlePopulateExamples}
-              disabled={isPopulating}
+              disabled={isPopulating || isRegenerating}
               className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPopulating ? (
@@ -223,10 +271,10 @@ export default function KnowledgeBasePage() {
           </div>
         )}
 
-        {(isAdding || isEditing) && (
+        {isAdding && (
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {isEditing ? 'Editar Fragmento' : 'Nuevo Fragmento'}
+              Nuevo Fragmento
             </h2>
             <textarea
               value={newContent}
@@ -242,10 +290,10 @@ export default function KnowledgeBasePage() {
                 Cancelar
               </button>
               <button
-                onClick={() => isEditing ? handleEdit(isEditing) : handleAdd()}
+                onClick={handleAdd}
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
-                {isEditing ? 'Actualizar' : 'Agregar'}
+                Agregar
               </button>
             </div>
           </div>
@@ -296,12 +344,14 @@ export default function KnowledgeBasePage() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <p className="text-gray-900 whitespace-pre-wrap">{item.content}</p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Creado: {new Date(item.created_at).toLocaleString('es-CL')}
-                            {item.updated_at !== item.created_at && (
-                              <> • Actualizado: {new Date(item.updated_at).toLocaleString('es-CL')}</>
-                            )}
-                          </p>
+                          {item.created_at && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Creado: {new Date(item.created_at).toLocaleString('es-CL')}
+                              {item.updated_at && item.updated_at !== item.created_at && (
+                                <> • Actualizado: {new Date(item.updated_at).toLocaleString('es-CL')}</>
+                              )}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2 ml-4">
                           <button
