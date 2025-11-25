@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const filterMarca = searchParams.get('marca');
     const filterModelo = searchParams.get('modelo');
     
-    let query = supabase
+    let query = (supabase as any)
       .from('stock_timbres')
       .select('*');
     
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     for (const update of updates) {
       // Intentar actualizar primero
-      const { data: updateData, error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await (supabase as any)
         .from('stock_timbres')
         .update({ stock: update.stock })
         .eq('marca', update.marca)
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
       if (updateError || !updateData || updateData.length === 0) {
         // Si no existe, intentar insertar
-        const { data: insertData, error: insertError } = await supabase
+        const { data: insertData, error: insertError } = await (supabase as any)
           .from('stock_timbres')
           .insert([update])
           .select();
