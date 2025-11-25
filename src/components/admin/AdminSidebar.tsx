@@ -9,6 +9,7 @@ const links = [
   { href: '/admin/productos/nuevo', label: 'Nuevo producto' },
   { href: '/admin/slider', label: 'Slider' },
   { href: '/admin/top-banner', label: 'Top banner' },
+  { href: '/admin/knowledge-base', label: 'Base de Conocimiento' },
 ]
 
 export default function AdminSidebar() {

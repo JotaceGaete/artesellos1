@@ -13,6 +13,10 @@ export default function AdminHome() {
           <div className="font-semibold">Nuevo producto</div>
           <div className="text-sm text-gray-500">Crear un producto desde cero</div>
         </Link>
+        <Link href="/admin/knowledge-base" className="block p-4 border rounded-lg hover:shadow-sm transition-shadow">
+          <div className="font-semibold">Base de Conocimiento</div>
+          <div className="text-sm text-gray-500">Gestionar fragmentos del chatbot</div>
+        </Link>
       </div>
     </div>
   )
