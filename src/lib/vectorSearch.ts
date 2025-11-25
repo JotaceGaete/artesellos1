@@ -48,7 +48,7 @@ export async function findRelevantContext(
     const supabase = createSupabaseAdmin();
 
     // Intentar primero con la función RPC
-    const { data: rpcData, error: rpcError } = await supabase.rpc('match_knowledge_base', {
+    const { data: rpcData, error: rpcError } = await (supabase as any).rpc('match_knowledge_base', {
       query_embedding: queryEmbedding,
       match_threshold: match_threshold,
       match_count: match_count,
