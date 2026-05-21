@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getProducts } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
@@ -66,18 +66,19 @@ const convertWooCommerceToProductType = (wooProduct: WooCommerceProduct): Produc
   };
 };
 
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  count?: number;
-}
-
 const sortOptions = [
   { value: 'name', label: 'Nombre A-Z' },
   { value: '-name', label: 'Nombre Z-A' },
   { value: 'price', label: 'Precio: Menor a Mayor' },
   { value: '-price', label: 'Precio: Mayor a Menor' },
+];
+
+// Categorías del catálogo: label visible → value que coincide con products.categories[]
+const CATALOG_CATEGORIES = [
+  { id: 1, slug: 'automaticos', label: 'Automáticos' },
+  { id: 2, slug: 'bolsillo',    label: 'De bolsillo' },
+  { id: 3, slug: 'fechadores',  label: 'Fechadores' },
+  { id: 4, slug: 'redondos',    label: 'Redondos' },
 ];
 
 // Marcas ficticias (reemplazar con datos reales de Supabase)
@@ -123,38 +124,6 @@ export default function ProductosPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 12;
 
-  // Categorías derivadas de los productos reales (nunca hardcodeadas)
-  const categories = useMemo(() => {
-    const map = new Map<string, { displayName: string; count: number }>();
-    allProducts.forEach(product => {
-      (product.categories || []).forEach(cat => {
-        if (!cat.name) return;
-        const slug = normalize(cat.name);
-        if (!slug || slug === 'general') return;
-        const prev = map.get(slug);
-        if (prev) {
-          map.set(slug, { ...prev, count: prev.count + 1 });
-        } else {
-          // Capitalizar primera letra de cada palabra para display
-          const displayName = cat.name
-            .toLowerCase()
-            .replace(/(?:^|\s)\S/g, c => c.toUpperCase());
-          map.set(slug, { displayName, count: 1 });
-        }
-      });
-    });
-    const result = Array.from(map.entries())
-      .map(([slug, { displayName, count }], i) => ({
-        id: i + 1,
-        name: displayName,
-        slug,
-        count,
-      }))
-      .sort((a, b) => b.count - a.count);
-    console.log('[Categorías reales]', result.map(c => `${c.name} (${c.slug}) x${c.count}`));
-    return result;
-  }, [allProducts]);
-
   // Carga inicial: solo UNA vez al montar el componente
   useEffect(() => {
     loadAllProducts();
@@ -173,15 +142,9 @@ export default function ProductosPage() {
       setLoading(true);
       const result = await getProducts({ per_page: 100 });
       const converted = (result.products || []).map(convertWooCommerceToProductType);
-      if (converted.length > 0) {
-        console.log('[Producto completo]', converted[0]);
-        console.log('[Categorías únicas reales]',
-          Array.from(new Set(converted.flatMap(p => (p.categories || []).map(c => c.name))))
-        );
-      }
       setAllProducts(converted);
     } catch (error) {
-      console.error('[Productos] Error cargando productos:', error);
+      console.error('Error cargando productos:', error);
       setAllProducts([]);
     } finally {
       setLoading(false);
@@ -212,9 +175,6 @@ export default function ProductosPage() {
         .split(' ')
         .filter(w => w.length > 1 && !STOP_WORDS.has(w));
 
-      console.log('[Búsqueda] searchTerm:', JSON.stringify(searchTerm), '→ words:', words);
-      console.log('[Búsqueda] Productos antes del filtro:', filtered.length);
-
       if (words.length > 0) {
         filtered = filtered.filter(product => {
           const haystack = [
@@ -227,12 +187,9 @@ export default function ProductosPage() {
             .filter(Boolean)
             .map(normalize)
             .join(' ');
-          const matches = words.every(word => haystack.includes(word));
-          return matches;
+          return words.every(word => haystack.includes(word));
         });
       }
-
-      console.log('[Búsqueda] Productos después del filtro:', filtered.length);
     }
 
     // Filtrar por precio
@@ -360,7 +317,7 @@ export default function ProductosPage() {
         
         {categoryExpanded && (
           <div className="mt-4 space-y-3">
-            {categories.slice(0, 8).map(category => (
+            {CATALOG_CATEGORIES.map(category => (
               <label key={category.slug} className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
@@ -369,10 +326,7 @@ export default function ProductosPage() {
                   className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                  {category.name}
-                  {category.count !== undefined && (
-                    <span className="ml-1 text-xs text-gray-400">({category.count})</span>
-                  )}
+                  {category.label}
                 </span>
               </label>
             ))}
