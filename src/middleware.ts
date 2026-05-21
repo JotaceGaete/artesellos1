@@ -1,19 +1,35 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_COOKIE, verifyAdminToken } from '@/lib/adminAuth';
 
-export async function middleware() {
-  // Middleware simplificado - sin autenticación de usuario
-  // Solo para futuras funcionalidades si es necesario
-  return NextResponse.next()
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Permitir login y las rutas de auth sin restricción
+  if (pathname === '/admin/login' || pathname.startsWith('/api/admin/auth/')) {
+    return NextResponse.next();
+  }
+
+  const isAdminPage = pathname.startsWith('/admin');
+  const isAdminApi = pathname.startsWith('/api/admin');
+
+  if (!isAdminPage && !isAdminApi) return NextResponse.next();
+
+  const token = req.cookies.get(ADMIN_COOKIE)?.value;
+  const valid = await verifyAdminToken(token);
+
+  if (!valid) {
+    if (isAdminApi) {
+      return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = '/admin/login';
+    url.searchParams.set('from', pathname);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-}
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
+};
