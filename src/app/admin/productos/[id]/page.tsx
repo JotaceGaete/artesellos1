@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
+import ProductImageUploader from '@/components/admin/ProductImageUploader';
 
 const toSlug = (str: string) =>
   str.toLowerCase()
@@ -21,8 +22,7 @@ interface FormData {
   description: string;
   categories: string[];
   tags: string;
-  imageMain: string;
-  imageGallery: string;
+  images: string[];
   featured: boolean;
   stock_status: 'instock' | 'outofstock';
   stock_quantity: string;
@@ -69,12 +69,13 @@ export default function EditProductoPage() {
     name: '', slug: '', price: '', regular_price: '',
     short_description: '', description: '',
     categories: [], tags: '',
-    imageMain: '', imageGallery: '',
+    images: [],
     featured: false, stock_status: 'instock', stock_quantity: '10',
   });
   const [slugLocked, setSlugLocked] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
@@ -98,11 +99,6 @@ export default function EditProductoPage() {
       ? form.categories.filter(c => c !== slug)
       : [...form.categories, slug]);
 
-  const buildImages = (): string[] => {
-    const all = [form.imageMain, ...form.imageGallery.split(/\n|,/)].map(s => s.trim()).filter(Boolean);
-    return [...new Set(all)];
-  };
-
   useEffect(() => {
     if (!productId) return;
     (async () => {
@@ -110,9 +106,6 @@ export default function EditProductoPage() {
         const res = await fetch(`/api/admin/productos/${productId}`);
         if (!res.ok) { setNotFound(true); return; }
         const data = await res.json();
-
-        const images: string[] = Array.isArray(data.images) ? data.images : [];
-        const [main, ...rest] = images;
 
         setForm({
           name: data.name ?? '',
@@ -123,8 +116,7 @@ export default function EditProductoPage() {
           description: data.description ?? '',
           categories: Array.isArray(data.categories) ? data.categories : [],
           tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
-          imageMain: main ?? '',
-          imageGallery: rest.join('\n'),
+          images: Array.isArray(data.images) ? data.images : [],
           featured: Boolean(data.featured),
           stock_status: data.stock_status === 'outofstock' ? 'outofstock' : 'instock',
           stock_quantity: data.stock_quantity?.toString() ?? '0',
@@ -151,7 +143,7 @@ export default function EditProductoPage() {
           regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
           description: form.description.trim(),
           short_description: form.short_description.trim(),
-          images: buildImages(),
+          images: form.images,
           categories: form.categories,
           tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
           featured: form.featured,
@@ -183,7 +175,7 @@ export default function EditProductoPage() {
           regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
           description: form.description.trim(),
           short_description: form.short_description.trim(),
-          images: buildImages(),
+          images: form.images,
           categories: form.categories,
           tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
           featured: false,
@@ -215,7 +207,7 @@ export default function EditProductoPage() {
     }
   };
 
-  const previewImage = resolveAssetUrl(form.imageMain || (form.imageGallery.split(/\n|,/)[0]?.trim()));
+  const previewImage = form.images.length > 0 ? resolveAssetUrl(form.images[0]) : undefined;
 
   if (loading) {
     return (
@@ -401,24 +393,11 @@ export default function EditProductoPage() {
 
             {/* Imágenes */}
             <Section title="Imágenes">
-              <Field label="Imagen principal (URL)" hint="URL directa a la imagen principal del producto.">
-                <input
-                  type="url"
-                  value={form.imageMain}
-                  onChange={e => set('imageMain', e.target.value)}
-                  className={INPUT}
-                  placeholder="https://media.artesellos.cl/producto.webp"
-                />
-              </Field>
-              <Field label="Galería adicional" hint="Una URL por línea o separadas por coma.">
-                <textarea
-                  value={form.imageGallery}
-                  onChange={e => set('imageGallery', e.target.value)}
-                  rows={3}
-                  className={TEXTAREA}
-                  placeholder={'https://media.artesellos.cl/img2.webp\nhttps://media.artesellos.cl/img3.webp'}
-                />
-              </Field>
+              <ProductImageUploader
+                value={form.images}
+                onChange={urls => set('images', urls)}
+                onBusyChange={setImagesBusy}
+              />
             </Section>
 
             {/* Estado */}
@@ -465,10 +444,10 @@ export default function EditProductoPage() {
               </Link>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || imagesBusy}
                 className="flex-1 sm:flex-none px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               >
-                {submitting ? 'Guardando…' : 'Guardar cambios'}
+                {imagesBusy ? 'Subiendo imágenes…' : submitting ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </div>
           </div>

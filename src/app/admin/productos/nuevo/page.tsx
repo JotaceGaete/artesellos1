@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
+import ProductImageUploader from '@/components/admin/ProductImageUploader';
 
 const toSlug = (str: string) =>
   str.toLowerCase()
@@ -21,8 +22,7 @@ interface FormData {
   description: string;
   categories: string[];
   tags: string;
-  imageMain: string;
-  imageGallery: string;
+  images: string[];
   featured: boolean;
   stock_status: 'instock' | 'outofstock';
   stock_quantity: string;
@@ -32,7 +32,7 @@ const EMPTY: FormData = {
   name: '', slug: '', price: '', regular_price: '',
   short_description: '', description: '',
   categories: [], tags: '',
-  imageMain: '', imageGallery: '',
+  images: [],
   featured: false, stock_status: 'instock', stock_quantity: '10',
 };
 
@@ -65,6 +65,7 @@ export default function NuevoProductoPage() {
   const [form, setForm] = useState<FormData>(EMPTY);
   const [slugLocked, setSlugLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const set = (field: keyof FormData, value: any) =>
@@ -79,11 +80,6 @@ export default function NuevoProductoPage() {
     set('categories', form.categories.includes(slug)
       ? form.categories.filter(c => c !== slug)
       : [...form.categories, slug]);
-
-  const buildImages = (): string[] => {
-    const all = [form.imageMain, ...form.imageGallery.split(/\n|,/)].map(s => s.trim()).filter(Boolean);
-    return [...new Set(all)];
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +96,7 @@ export default function NuevoProductoPage() {
           regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
           description: form.description.trim(),
           short_description: form.short_description.trim(),
-          images: buildImages(),
+          images: form.images,
           categories: form.categories,
           tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
           featured: form.featured,
@@ -118,7 +114,7 @@ export default function NuevoProductoPage() {
     }
   };
 
-  const previewImage = resolveAssetUrl(form.imageMain || (form.imageGallery.split(/\n|,/)[0]?.trim()));
+  const previewImage = form.images.length > 0 ? resolveAssetUrl(form.images[0]) : undefined;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -246,24 +242,11 @@ export default function NuevoProductoPage() {
 
             {/* Imágenes */}
             <Section title="Imágenes">
-              <Field label="Imagen principal (URL)" hint="URL directa a la imagen principal del producto.">
-                <input
-                  type="url"
-                  value={form.imageMain}
-                  onChange={e => set('imageMain', e.target.value)}
-                  className={INPUT}
-                  placeholder="https://media.artesellos.cl/producto.webp"
-                />
-              </Field>
-              <Field label="Galería adicional" hint="Una URL por línea o separadas por coma.">
-                <textarea
-                  value={form.imageGallery}
-                  onChange={e => set('imageGallery', e.target.value)}
-                  rows={3}
-                  className={TEXTAREA}
-                  placeholder="https://media.artesellos.cl/img2.webp&#10;https://media.artesellos.cl/img3.webp"
-                />
-              </Field>
+              <ProductImageUploader
+                value={form.images}
+                onChange={urls => set('images', urls)}
+                onBusyChange={setImagesBusy}
+              />
             </Section>
 
             {/* Estado */}
@@ -315,10 +298,10 @@ export default function NuevoProductoPage() {
               </Link>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || imagesBusy}
                 className="flex-1 sm:flex-none px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               >
-                {submitting ? 'Guardando…' : 'Crear producto'}
+                {imagesBusy ? 'Subiendo imágenes…' : submitting ? 'Guardando…' : 'Crear producto'}
               </button>
             </div>
           </div>
