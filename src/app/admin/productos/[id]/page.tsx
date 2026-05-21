@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
+import { resolveAssetUrl } from '@/lib/assetUrl';
 
 const toSlug = (str: string) =>
   str.toLowerCase()
@@ -214,7 +215,7 @@ export default function EditProductoPage() {
     }
   };
 
-  const previewImage = form.imageMain || (form.imageGallery.split(/\n|,/)[0]?.trim() ?? '');
+  const previewImage = resolveAssetUrl(form.imageMain || (form.imageGallery.split(/\n|,/)[0]?.trim()));
 
   if (loading) {
     return (
@@ -481,7 +482,7 @@ export default function EditProductoPage() {
                 </div>
                 <div className="aspect-square bg-gray-50 flex items-center justify-center">
                   {previewImage ? (
-                    <img src={previewImage} alt="Preview" className="w-full h-full object-contain p-4" onError={e => (e.currentTarget.style.opacity = '0')} />
+                    <img src={previewImage} alt="Preview" className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" onError={e => (e.currentTarget.style.opacity = '0')} />
                   ) : (
                     <span className="text-5xl">📦</span>
                   )}

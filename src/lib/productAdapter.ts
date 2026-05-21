@@ -1,29 +1,6 @@
 import { Product as MockProduct } from '@/types/product';
 import { Product as SupabaseProduct } from '@/lib/supabase';
-
-// Resolver de URLs de imágenes: soporta URLs absolutas o claves (keys) de R2/CDN
-function resolveAssetUrl(raw?: string): string {
-  const placeholder = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
-  if (!raw || typeof raw !== 'string') return placeholder;
-  const value = raw.trim();
-  if (!value) return placeholder;
-  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
-    return value;
-  }
-  // Base por defecto: artesellos.cl si no hay env definida
-  const base = (process.env.NEXT_PUBLIC_ASSETS_BASE_URL || 'https://artesellos.cl').replace(/\/+$/, '');
-  if (!base) return placeholder;
-  let key = value.replace(/^\/+/, '');
-  // Si el key incluye el nombre del bucket (e.g., "timbres/archivo.jpg") y el dominio
-  // personalizado ya apunta al bucket, quitamos el prefijo para evitar 404
-  key = key.replace(/^(timbres\/)/i, '');
-  // Codificar cada segmento para soportar espacios y caracteres especiales
-  const encoded = key.split('/')
-    .filter(Boolean)
-    .map((seg) => encodeURIComponent(seg))
-    .join('/');
-  return `${base}/${encoded}`;
-}
+import { resolveAssetUrl } from '@/lib/assetUrl';
 
  /**
  * Adaptador para convertir productos de Supabase al formato esperado por los componentes

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { CATALOG_CATEGORIES, categoryLabel } from '@/lib/catalogCategories';
+import { resolveAssetUrl } from '@/lib/assetUrl';
 
 interface AdminProduct {
   id: string;
@@ -225,12 +226,15 @@ export default function AdminProductosPage() {
 
         {/* Estado de carga */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse">
-                <div className="aspect-square bg-gray-100 rounded-lg mb-3" />
-                <div className="h-4 bg-gray-100 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-gray-100 rounded w-1/2" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 overflow-hidden animate-pulse">
+                <div className="aspect-square bg-gray-100" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 bg-gray-100 rounded w-3/4" />
+                  <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  <div className="h-5 bg-gray-100 rounded w-1/3" />
+                </div>
               </div>
             ))}
           </div>
@@ -240,21 +244,34 @@ export default function AdminProductosPage() {
         {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map(p => {
-              const thumb = Array.isArray(p.images) && p.images[0] ? p.images[0] : null;
+              const thumb = resolveAssetUrl(Array.isArray(p.images) ? p.images[0] : undefined);
+              const hasImage = Array.isArray(p.images) && p.images.length > 0;
               const isHidden = p.stock_status === 'outofstock';
               const busy = processing === p.id;
               return (
                 <div
                   key={p.id}
-                  className={`bg-white rounded-xl border overflow-hidden flex flex-col transition-shadow hover:shadow-md ${isHidden ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}
+                  className={`group bg-white rounded-xl border overflow-hidden flex flex-col transition-shadow hover:shadow-md ${isHidden ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}
                 >
                   {/* Thumbnail */}
-                  <div className="aspect-square bg-gray-50 relative">
-                    {thumb ? (
-                      <img src={thumb} alt={p.name} className="w-full h-full object-contain p-2" onError={e => (e.currentTarget.style.display = 'none')} />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">📦</div>
-                    )}
+                  <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                    {hasImage ? (
+                      <img
+                        src={thumb}
+                        alt={p.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={e => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.removeAttribute('style');
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-full h-full absolute inset-0 flex items-center justify-center text-gray-300 text-4xl bg-gray-50"
+                      style={hasImage ? { display: 'none' } : undefined}
+                    >
+                      📦
+                    </div>
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex gap-1">
                       {isHidden && <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-800 text-white rounded">Oculto</span>}
