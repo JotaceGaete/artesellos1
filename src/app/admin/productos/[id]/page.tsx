@@ -1,387 +1,525 @@
-'use client'
+'use client';
 
-export const runtime = 'edge';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
+import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import CategorySelector from '@/components/admin/CategorySelector'
-import StockTable from '@/components/admin/StockTable'
+const toSlug = (str: string) =>
+  str.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
-interface Product {
-  id: string
-  name: string
-  slug: string
-  price: number
-  description: string
-  short_description: string
-  images: string
-  stock_quantity: number
-  stock_status: string
-  categories: string[]
+interface FormData {
+  name: string;
+  slug: string;
+  price: string;
+  regular_price: string;
+  short_description: string;
+  description: string;
+  categories: string[];
+  tags: string;
+  imageMain: string;
+  imageGallery: string;
+  featured: boolean;
+  stock_status: 'instock' | 'outofstock';
+  stock_quantity: string;
 }
 
-export default function EditProductPage() {
-  const router = useRouter()
-  const params = useParams()
-  const productId = params.id as string
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h2>
+      </div>
+      <div className="p-5 space-y-4">{children}</div>
+    </div>
+  );
+}
 
-  const [product, setProduct] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [stockFilters, setStockFilters] = useState<{ marca?: string; modelo?: string }>({})
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    </div>
+  );
+}
 
-  // Función para extraer marca y modelo del nombre del producto
-  const extractMarcaModelo = (productName: string) => {
-    // Patrones comunes: "Marca Modelo", "Marca-Modelo", "Marca Modelo - Descripción"
-    const patterns = [
-      /^(\w+)\s+(\d+)/i,  // "Shiny 722", "Automatik 913"
-      /^(\w+)-(\d+)/i,     // "Shiny-722"
-      /^(\w+)\s+(\w+)\s+(\d+)/i,  // "Shiny Printer 842"
-    ];
+function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white transition-all ${type === 'ok' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+      {type === 'ok' ? '✓' : '✕'} {msg}
+    </div>
+  );
+}
 
-    for (const pattern of patterns) {
-      const match = productName.match(pattern);
-      if (match) {
-        // Si tiene 3 grupos, el segundo puede ser parte del nombre
-        if (match.length >= 3) {
-          // Intentar detectar si el segundo grupo es un número (modelo)
-          if (/^\d+$/.test(match[2])) {
-            return { marca: match[1], modelo: match[2] };
-          }
-          // Si hay 3 grupos y el tercero es número, usar los primeros dos como marca
-          if (match.length >= 4 && /^\d+$/.test(match[3])) {
-            return { marca: `${match[1]} ${match[2]}`, modelo: match[3] };
-          }
-        }
-      }
-    }
+const INPUT = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-300';
+const TEXTAREA = `${INPUT} resize-none`;
 
-    // Si no coincide ningún patrón, intentar dividir por espacios
-    const parts = productName.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      const lastPart = parts[parts.length - 1];
-      if (/^\d+$/.test(lastPart)) {
-        return { marca: parts.slice(0, -1).join(' '), modelo: lastPart };
-      }
-    }
+export default function EditProductoPage() {
+  const router = useRouter();
+  const params = useParams();
+  const productId = params.id as string;
 
-    return { marca: undefined, modelo: undefined };
+  const [form, setForm] = useState<FormData>({
+    name: '', slug: '', price: '', regular_price: '',
+    short_description: '', description: '',
+    categories: [], tags: '',
+    imageMain: '', imageGallery: '',
+    featured: false, stock_status: 'instock', stock_quantity: '10',
+  });
+  const [slugLocked, setSlugLocked] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    price: '',
-    description: '',
-    short_description: '',
-    images: '',
-    stock_quantity: '',
-    stock_status: 'instock'
-  })
+  const set = (field: keyof FormData, value: any) =>
+    setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleNameChange = (name: string) => {
+    set('name', name);
+    if (!slugLocked) set('slug', toSlug(name));
+  };
+
+  const toggleCategory = (slug: string) =>
+    set('categories', form.categories.includes(slug)
+      ? form.categories.filter(c => c !== slug)
+      : [...form.categories, slug]);
+
+  const buildImages = (): string[] => {
+    const all = [form.imageMain, ...form.imageGallery.split(/\n|,/)].map(s => s.trim()).filter(Boolean);
+    return [...new Set(all)];
+  };
 
   useEffect(() => {
-    if (productId) {
-      fetchProduct()
-    }
-  }, [productId])
+    if (!productId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/productos/${productId}`);
+        if (!res.ok) { setNotFound(true); return; }
+        const data = await res.json();
 
-  const fetchProduct = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/admin/productos/${productId}`)
-      if (!response.ok) {
-        throw new Error('Error al cargar el producto')
+        const images: string[] = Array.isArray(data.images) ? data.images : [];
+        const [main, ...rest] = images;
+
+        setForm({
+          name: data.name ?? '',
+          slug: data.slug ?? '',
+          price: data.price?.toString() ?? '',
+          regular_price: data.regular_price?.toString() ?? '',
+          short_description: data.short_description ?? '',
+          description: data.description ?? '',
+          categories: Array.isArray(data.categories) ? data.categories : [],
+          tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
+          imageMain: main ?? '',
+          imageGallery: rest.join('\n'),
+          featured: Boolean(data.featured),
+          stock_status: data.stock_status === 'outofstock' ? 'outofstock' : 'instock',
+          stock_quantity: data.stock_quantity?.toString() ?? '0',
+        });
+      } catch {
+        setNotFound(true);
+      } finally {
+        setLoading(false);
       }
-      const data = await response.json()
-      setProduct(data)
-      setFormData({
-        name: data.name || '',
-        slug: data.slug || '',
-        price: data.price?.toString() || '',
-        description: data.description || '',
-        short_description: data.short_description || '',
-        images: Array.isArray(data.images) ? data.images.join(', ') : (data.images || ''),
-        stock_quantity: data.stock_quantity?.toString() || '',
-        stock_status: data.stock_status || 'instock'
-      })
-      
-      // Extraer marca y modelo del nombre para filtrar stock
-      if (data.name) {
-        const { marca, modelo } = extractMarcaModelo(data.name);
-        setStockFilters({ marca, modelo });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-    } finally {
-      setLoading(false)
-    }
-  }
+    })();
+  }, [productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-
+    e.preventDefault();
+    setSubmitting(true);
     try {
-      const response = await fetch(`/api/admin/productos/${productId}`, {
+      const res = await fetch(`/api/admin/productos/${productId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          price: Number(formData.price),
-          stock_quantity: Number(formData.stock_quantity),
-          images: formData.images.split(',').map(img => img.trim()).filter(Boolean)
+          name: form.name.trim(),
+          slug: form.slug.trim(),
+          price: Number(form.price.replace(/\D/g, '')),
+          regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
+          description: form.description.trim(),
+          short_description: form.short_description.trim(),
+          images: buildImages(),
+          categories: form.categories,
+          tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
+          featured: form.featured,
+          stock_status: form.stock_status,
+          stock_quantity: Number(form.stock_quantity) || 0,
         }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Error al actualizar producto')
-      }
-
-      router.push('/admin/productos')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.message || 'Error al guardar');
+      showToast('Cambios guardados');
+    } catch (err: any) {
+      showToast(err.message, 'err');
     } finally {
-      setSaving(false)
+      setSubmitting(false);
     }
-  }
+  };
+
+  const handleDuplicate = async () => {
+    setDuplicating(true);
+    try {
+      const newSlug = `${form.slug}-copia-${Date.now().toString(36)}`;
+      const res = await fetch('/api/admin/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${form.name} (copia)`,
+          slug: newSlug,
+          price: Number(form.price.replace(/\D/g, '')),
+          regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
+          description: form.description.trim(),
+          short_description: form.short_description.trim(),
+          images: buildImages(),
+          categories: form.categories,
+          tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
+          featured: false,
+          stock_status: 'outofstock',
+          stock_quantity: Number(form.stock_quantity) || 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al duplicar');
+      showToast('Producto duplicado');
+      router.push(`/admin/productos/${data.product.id}`);
+    } catch (err: any) {
+      showToast(err.message, 'err');
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   const handleDelete = async () => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.')) {
-      return
-    }
-
-    setSaving(true)
-    setError('')
-
+    if (!confirm(`¿Eliminar "${form.name}"? Esta acción no se puede deshacer.`)) return;
+    setDeleting(true);
     try {
-      const response = await fetch(`/api/admin/productos/${productId}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Error al eliminar producto')
-      }
-
-      router.push('/admin/productos')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-    } finally {
-      setSaving(false)
+      const res = await fetch(`/api/admin/productos/${productId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar');
+      router.push('/admin/productos');
+    } catch (err: any) {
+      showToast(err.message, 'err');
+      setDeleting(false);
     }
-  }
+  };
+
+  const previewImage = form.imageMain || (form.imageGallery.split(/\n|,/)[0]?.trim() ?? '');
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="text-gray-500">Cargando producto...</div>
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="animate-pulse space-y-5">
+          <div className="h-8 bg-gray-100 rounded w-48" />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+              <div className="h-4 bg-gray-100 rounded w-32" />
+              <div className="h-10 bg-gray-100 rounded" />
+              <div className="h-10 bg-gray-100 rounded" />
+            </div>
+          ))}
+        </div>
       </div>
-    )
+    );
   }
 
-  if (!product) {
+  if (notFound) {
     return (
-      <div className="text-center py-12">
-        <div className="text-red-600 mb-4">Producto no encontrado</div>
-        <button
-          onClick={() => router.push('/admin/productos')}
-          className="text-indigo-600 hover:underline"
-        >
-          Volver a productos
-        </button>
+      <div className="max-w-5xl mx-auto text-center py-20">
+        <p className="text-4xl mb-3">🔍</p>
+        <p className="text-gray-500 mb-4">Producto no encontrado.</p>
+        <Link href="/admin/productos" className="text-indigo-600 hover:underline text-sm">
+          ← Volver a productos
+        </Link>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Editar Producto</h1>
-        <button
-          onClick={() => router.push('/admin/productos')}
-          className="text-gray-600 hover:text-gray-900"
-        >
-          ← Volver
-        </button>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link href="/admin/productos" className="text-gray-400 hover:text-gray-600 text-lg">←</Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 truncate">{form.name || 'Editar producto'}</h1>
+          <p className="text-sm text-gray-500 font-mono">/producto/{form.slug}</p>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white shadow rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">Información básica</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre del producto *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Slug (URL) *
-              </label>
-              <input
-                type="text"
-                value={formData.slug}
-                onChange={(e) => setFormData({...formData, slug: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio *
-              </label>
-              <input
-                type="number"
-                value={formData.price}
-                onChange={(e) => setFormData({...formData, price: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Stock
-              </label>
-              <input
-                type="number"
-                value={formData.stock_quantity}
-                onChange={(e) => setFormData({...formData, stock_quantity: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estado de stock
-              </label>
-              <select
-                value={formData.stock_status}
-                onChange={(e) => setFormData({...formData, stock_status: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="instock">En stock</option>
-                <option value="outofstock">Sin stock</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción corta
-            </label>
-            <textarea
-              value={formData.short_description}
-              onChange={(e) => setFormData({...formData, short_description: e.target.value})}
-              rows={2}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descripción completa
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              rows={4}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              URLs de imágenes (separadas por comas)
-            </label>
-            <textarea
-              value={formData.images}
-              onChange={(e) => setFormData({...formData, images: e.target.value})}
-              rows={3}
-              placeholder="https://ejemplo.com/imagen1.jpg, https://ejemplo.com/imagen2.jpg"
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Categorías</h2>
-          <CategorySelector 
-            productId={product.id} 
-            initial={product.categories || []} 
-          />
-        </div>
-
-        {/* Gestión de Stock - Solo si se pudo extraer marca y modelo */}
-        {(stockFilters.marca || stockFilters.modelo) && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Gestión de Stock por Variantes
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Stock disponible por color para <strong>{product.name}</strong>
-              {stockFilters.marca && stockFilters.modelo && (
-                <span className="ml-2 text-xs text-gray-500">
-                  (Filtrado: {stockFilters.marca} {stockFilters.modelo})
-                </span>
-              )}
-            </p>
-            <StockTable 
-              filterByMarca={stockFilters.marca}
-              filterByModelo={stockFilters.modelo}
-            />
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/producto/${form.slug}`}
+            target="_blank"
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            Ver ↗
+          </Link>
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {duplicating ? 'Duplicando…' : '⎘ Duplicar'}
+          </button>
           <button
             type="button"
             onClick={handleDelete}
-            disabled={saving}
-            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            disabled={deleting}
+            className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 disabled:opacity-50"
           >
-            {saving ? 'Eliminando...' : 'Eliminar producto'}
+            {deleting ? 'Eliminando…' : '✕ Eliminar'}
           </button>
+        </div>
+      </div>
 
-          <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={() => router.push('/admin/productos')}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Guardando...' : 'Guardar cambios'}
-            </button>
+      <form onSubmit={handleSubmit}>
+        <div className="lg:grid lg:grid-cols-[1fr_300px] lg:gap-6 space-y-6 lg:space-y-0">
+          {/* ── Columna principal ── */}
+          <div className="space-y-5">
+            {/* Identidad */}
+            <Section title="Identidad">
+              <Field label="Nombre del producto *">
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => handleNameChange(e.target.value)}
+                  className={INPUT}
+                  placeholder="Ej: Timbre Shiny 1800 Automático"
+                  required
+                />
+              </Field>
+              <Field label="Slug (URL)" hint="Edita manualmente si necesitas cambiarlo.">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={form.slug}
+                    onChange={e => { setSlugLocked(true); set('slug', e.target.value); }}
+                    className={INPUT}
+                    placeholder="timbre-shiny-1800"
+                    required
+                  />
+                  {slugLocked && (
+                    <button
+                      type="button"
+                      onClick={() => { setSlugLocked(false); set('slug', toSlug(form.name)); }}
+                      className="px-3 py-2 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+                    >
+                      ↺ Auto
+                    </button>
+                  )}
+                </div>
+              </Field>
+            </Section>
+
+            {/* Precios */}
+            <Section title="Precios">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Precio de venta (CLP) *">
+                  <input
+                    type="text"
+                    value={form.price}
+                    onChange={e => set('price', e.target.value)}
+                    className={INPUT}
+                    placeholder="15990"
+                    inputMode="numeric"
+                    required
+                  />
+                </Field>
+                <Field label="Precio regular (CLP)" hint="Opcional. Si mayor al precio, muestra tachado.">
+                  <input
+                    type="text"
+                    value={form.regular_price}
+                    onChange={e => set('regular_price', e.target.value)}
+                    className={INPUT}
+                    placeholder="19990"
+                    inputMode="numeric"
+                  />
+                </Field>
+              </div>
+            </Section>
+
+            {/* Categorías */}
+            <Section title="Categorías">
+              <div className="flex flex-wrap gap-3">
+                {CATALOG_CATEGORIES.map(cat => (
+                  <label key={cat.slug} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form.categories.includes(cat.slug)}
+                      onChange={() => toggleCategory(cat.slug)}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700">{cat.label}</span>
+                  </label>
+                ))}
+              </div>
+              {form.categories.length === 0 && (
+                <p className="text-xs text-amber-600">Selecciona al menos una categoría.</p>
+              )}
+            </Section>
+
+            {/* Contenido */}
+            <Section title="Contenido">
+              <Field label="Descripción corta" hint="Aparece en la tarjeta del producto (1-2 líneas).">
+                <textarea
+                  value={form.short_description}
+                  onChange={e => set('short_description', e.target.value)}
+                  rows={2}
+                  className={TEXTAREA}
+                  placeholder="Timbre automático compacto ideal para uso diario."
+                />
+              </Field>
+              <Field label="Descripción completa">
+                <textarea
+                  value={form.description}
+                  onChange={e => set('description', e.target.value)}
+                  rows={5}
+                  className={TEXTAREA}
+                  placeholder="Descripción detallada del producto: características, dimensiones, usos recomendados…"
+                />
+              </Field>
+              <Field label="Tags" hint="Separados por coma. Ej: trodat, automatico, 38x14mm">
+                <input
+                  type="text"
+                  value={form.tags}
+                  onChange={e => set('tags', e.target.value)}
+                  className={INPUT}
+                  placeholder="shiny, compacto, bolsillo"
+                />
+              </Field>
+            </Section>
+
+            {/* Imágenes */}
+            <Section title="Imágenes">
+              <Field label="Imagen principal (URL)" hint="URL directa a la imagen principal del producto.">
+                <input
+                  type="url"
+                  value={form.imageMain}
+                  onChange={e => set('imageMain', e.target.value)}
+                  className={INPUT}
+                  placeholder="https://media.artesellos.cl/producto.webp"
+                />
+              </Field>
+              <Field label="Galería adicional" hint="Una URL por línea o separadas por coma.">
+                <textarea
+                  value={form.imageGallery}
+                  onChange={e => set('imageGallery', e.target.value)}
+                  rows={3}
+                  className={TEXTAREA}
+                  placeholder={'https://media.artesellos.cl/img2.webp\nhttps://media.artesellos.cl/img3.webp'}
+                />
+              </Field>
+            </Section>
+
+            {/* Estado */}
+            <Section title="Estado y visibilidad">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div
+                    onClick={() => set('stock_status', form.stock_status === 'instock' ? 'outofstock' : 'instock')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.stock_status === 'instock' ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.stock_status === 'instock' ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {form.stock_status === 'instock' ? '✓ Publicado' : '✕ Oculto'}
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.featured}
+                    onChange={e => set('featured', e.target.checked)}
+                    className="w-4 h-4 text-amber-500 border-gray-300 rounded"
+                  />
+                  <span className="text-sm font-medium text-gray-700">★ Destacado en home</span>
+                </label>
+                <div className="sm:ml-auto">
+                  <Field label="Stock" hint="">
+                    <input
+                      type="number"
+                      value={form.stock_quantity}
+                      onChange={e => set('stock_quantity', e.target.value)}
+                      min={0}
+                      className={`${INPUT} w-24`}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </Section>
+
+            {/* Botones */}
+            <div className="flex gap-3 pt-2">
+              <Link href="/admin/productos" className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </Link>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 sm:flex-none px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {submitting ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </div>
           </div>
+
+          {/* ── Vista previa lateral (desktop) ── */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-6 space-y-4">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vista previa</p>
+                </div>
+                <div className="aspect-square bg-gray-50 flex items-center justify-center">
+                  {previewImage ? (
+                    <img src={previewImage} alt="Preview" className="w-full h-full object-contain p-4" onError={e => (e.currentTarget.style.opacity = '0')} />
+                  ) : (
+                    <span className="text-5xl">📦</span>
+                  )}
+                </div>
+                <div className="p-4 space-y-2">
+                  <p className="text-sm font-bold text-gray-900 leading-tight">
+                    {form.name || <span className="text-gray-300">Nombre del producto</span>}
+                  </p>
+                  {form.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {form.categories.map(c => (
+                        <span key={c} className="px-2 py-0.5 text-xs bg-indigo-50 text-indigo-700 rounded-full">
+                          {CATALOG_CATEGORIES.find(x => x.slug === c)?.label ?? c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-lg font-bold text-gray-900">
+                    {form.price
+                      ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Number(form.price.replace(/\D/g, '')))
+                      : <span className="text-gray-300 text-sm">Precio</span>}
+                  </p>
+                  {form.short_description && (
+                    <p className="text-xs text-gray-500 line-clamp-3">{form.short_description}</p>
+                  )}
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full font-medium ${form.stock_status === 'instock' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {form.stock_status === 'instock' ? '● Disponible' : '○ Oculto'}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">ID: {productId}</p>
+            </div>
+          </aside>
         </div>
       </form>
+
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
-  )
+  );
 }

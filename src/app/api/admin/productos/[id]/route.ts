@@ -7,7 +7,6 @@ import type { Json } from '@/types/database'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// GET - Obtener producto por ID
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,24 +21,14 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error('Error fetching product:', error)
-      return NextResponse.json(
-        { error: 'Producto no encontrado' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
-
     return NextResponse.json(product)
   } catch (error) {
-    console.error('Error in GET /api/admin/productos/[id]:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
 
-// PUT - Actualizar producto
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -51,51 +40,54 @@ export async function PUT(
       name,
       slug,
       price,
+      regular_price,
       description,
       short_description,
       images,
       stock_quantity,
-      stock_status
+      stock_status,
+      categories,
+      featured,
+      tags,
     } = body
 
     if (!name || !slug) {
-      return NextResponse.json(
-        { error: 'Nombre y slug son requeridos' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Nombre y slug son requeridos' }, { status: 400 })
     }
 
     const supabase = createSupabaseAdmin()
 
-    // Verificar que el slug no esté en uso por otro producto
-    const { data: existingProduct } = await supabase
+    // Verificar unicidad del slug
+    const { data: existing } = await supabase
       .from('products')
       .select('id')
       .eq('slug', slug)
       .neq('id', id)
       .single()
 
-    if (existingProduct) {
-      return NextResponse.json(
-        { error: 'El slug ya está en uso por otro producto' },
-        { status: 400 }
-      )
+    if (existing) {
+      return NextResponse.json({ error: 'El slug ya está en uso por otro producto' }, { status: 400 })
     }
 
-    // Actualizar el producto - usar supabase client sin tipado estricto
+    const priceNum = Math.round(Number(price) || 0)
+    const regularPriceNum = Math.round(Number(regular_price) || priceNum)
+
     const updateData = {
-      name: name as string,
-      slug: slug as string,
-      price: Number(price) as number,
-      description: description as string,
-      short_description: short_description as string,
-      images: images as Json,
+      name: String(name).trim(),
+      slug: String(slug).trim(),
+      price: priceNum,
+      regular_price: regularPriceNum,
+      description: description ?? '',
+      short_description: short_description ?? '',
+      images: (Array.isArray(images) ? images.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
       stock_quantity: Number(stock_quantity) || 0,
-      stock_status: stock_status as 'instock' | 'outofstock' | 'onbackorder',
-      updated_at: new Date().toISOString()
+      stock_status: (stock_status === 'outofstock' ? 'outofstock' : 'instock') as 'instock' | 'outofstock',
+      categories: (Array.isArray(categories) ? categories.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
+      featured: Boolean(featured),
+      tags: (Array.isArray(tags) ? tags.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
+      updated_at: new Date().toISOString(),
     }
 
-    // Usar supabase client con tipado más permisivo
     const { data: product, error } = await (supabase as any)
       .from('products')
       .update(updateData as any)
@@ -104,28 +96,15 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error('Error updating product:', error)
-      return NextResponse.json(
-        { error: 'Error al actualizar el producto' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al actualizar el producto' }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      product,
-      message: 'Producto actualizado exitosamente' 
-    })
+    return NextResponse.json({ success: true, product, message: 'Producto actualizado' })
   } catch (error) {
-    console.error('Error in PUT /api/admin/productos/[id]:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
 
-// DELETE - Eliminar producto
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -134,7 +113,6 @@ export async function DELETE(
     const { id } = await params;
     const supabase = createSupabaseAdmin()
 
-    // Verificar que el producto existe y obtener su nombre
     const { data: productToDelete, error: fetchError } = await supabase
       .from('products')
       .select('id, name')
@@ -142,41 +120,19 @@ export async function DELETE(
       .single()
 
     if (fetchError || !productToDelete) {
-      return NextResponse.json(
-        { error: 'Producto no encontrado' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
 
-    // Eliminar colores relacionados primero (si existen)
-    await supabase
-      .from('product_colors')
-      .delete()
-      .eq('product_id', id)
+    await supabase.from('product_colors').delete().eq('product_id', id)
 
-    // Eliminar el producto
-    const { error: deleteError } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id)
+    const { error: deleteError } = await supabase.from('products').delete().eq('id', id)
 
     if (deleteError) {
-      console.error('Error deleting product:', deleteError)
-      return NextResponse.json(
-        { error: 'Error al eliminar el producto' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al eliminar el producto' }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true,
-      message: `Producto eliminado exitosamente` 
-    })
+    return NextResponse.json({ success: true, message: 'Producto eliminado' })
   } catch (error) {
-    console.error('Error in DELETE /api/admin/productos/[id]:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
