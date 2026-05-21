@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getProducts, getCategories } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
@@ -98,10 +98,13 @@ const normalize = (str: string): string =>
     .replace(/\s+/g, ' ');
 
 export default function ProductosPage() {
+  // allProducts: dataset completo cargado UNA SOLA VEZ desde Supabase
+  const [allProducts, setAllProducts] = useState<ProductType[]>([]);
+  // products: resultado filtrado derivado de allProducts (sin fetch adicional)
   const [products, setProducts] = useState<ProductType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -109,27 +112,29 @@ export default function ProductosPage() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState<string>('name');
-  
+
   // UI States
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [categoryExpanded, setCategoryExpanded] = useState(true);
   const [brandExpanded, setBrandExpanded] = useState(true);
   const [priceExpanded, setPriceExpanded] = useState(true);
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 12;
 
+  // Carga inicial: solo UNA vez al montar el componente
   useEffect(() => {
     loadCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadAllProducts();
   }, []);
 
+  // Re-filtrar en memoria cuando cambia cualquier filtro (sin fetch)
   useEffect(() => {
-    loadProducts();
+    applyFilters();
     setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
+  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, allProducts]);
 
   const loadCategories = async () => {
     try {
@@ -140,83 +145,100 @@ export default function ProductosPage() {
     }
   };
 
-  const loadProducts = async () => {
+  // Fetch único: carga todos los productos y los guarda en allProducts
+  const loadAllProducts = async () => {
     try {
       setLoading(true);
       const result = await getProducts({ per_page: 100 });
-      let filteredProducts = result.products || [];
-
-      // Filtrar por categorías
-      if (selectedCategories.length > 0) {
-        filteredProducts = filteredProducts.filter(product =>
-          product.categories.some(cat => selectedCategories.includes(cat.id.toString()))
-        );
-      }
-
-      // Filtrar por marcas (simulado con nombre del producto)
-      if (selectedBrands.length > 0) {
-        filteredProducts = filteredProducts.filter(product =>
-          selectedBrands.some(brand => product.name.toLowerCase().includes(brand.toLowerCase()))
-        );
-      }
-
-      // Filtrar por búsqueda (nombre, categorías, descripción y tags)
-      if (searchTerm.trim()) {
-        const words = normalize(searchTerm)
-          .split(' ')
-          .filter(w => w.length > 1 && !STOP_WORDS.has(w));
-        if (words.length > 0) {
-          filteredProducts = filteredProducts.filter(product => {
-            const haystack = [
-              product.name,
-              product.description || '',
-              product.short_description || '',
-              ...(product.categories || []).map((c: { name: string }) => c.name),
-              ...(product.tags || []).map((t: { name: string }) => t.name),
-            ]
-              .filter(Boolean)
-              .map(normalize)
-              .join(' ');
-            return words.every(word => haystack.includes(word));
-          });
-        }
-      }
-
-      // Filtrar por rango de precio
-      if (minPrice || maxPrice) {
-        filteredProducts = filteredProducts.filter(product => {
-          const price = parseFloat(product.price);
-          const min = minPrice ? parseFloat(minPrice) : 0;
-          const max = maxPrice ? parseFloat(maxPrice) : Infinity;
-          return price >= min && price <= max;
+      const converted = (result.products || []).map(convertWooCommerceToProductType);
+      console.log('[Productos] Cargados desde Supabase:', converted.length, 'productos');
+      if (converted.length > 0) {
+        console.log('[Productos] Ejemplo:', {
+          name: converted[0].name,
+          categories: converted[0].categories,
+          description: (converted[0].description || '').slice(0, 80),
         });
       }
-
-      // Ordenar
-      filteredProducts.sort((a, b) => {
-        switch (sortBy) {
-          case 'name':
-            return a.name.localeCompare(b.name);
-          case '-name':
-            return b.name.localeCompare(a.name);
-          case 'price':
-            return parseFloat(a.price) - parseFloat(b.price);
-          case '-price':
-            return parseFloat(b.price) - parseFloat(a.price);
-          default:
-            return 0;
-        }
-      });
-
-      const convertedProducts = filteredProducts.map(convertWooCommerceToProductType);
-      setProducts(convertedProducts);
+      setAllProducts(converted);
     } catch (error) {
-      console.error('Error loading products:', error);
-      setProducts([]);
+      console.error('[Productos] Error cargando productos:', error);
+      setAllProducts([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filtrado 100% client-side sobre allProducts (sin fetch, sin race condition)
+  const applyFilters = useCallback(() => {
+    let filtered = [...allProducts];
+
+    // Filtrar por categorías (sidebar checkboxes)
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
+        product.categories.some(cat => selectedCategories.includes(cat.id.toString()))
+      );
+    }
+
+    // Filtrar por marcas
+    if (selectedBrands.length > 0) {
+      filtered = filtered.filter(product =>
+        selectedBrands.some(brand => product.name.toLowerCase().includes(brand.toLowerCase()))
+      );
+    }
+
+    // Filtrar por texto: nombre, categorías, descripción y tags
+    if (searchTerm.trim()) {
+      const words = normalize(searchTerm)
+        .split(' ')
+        .filter(w => w.length > 1 && !STOP_WORDS.has(w));
+
+      console.log('[Búsqueda] searchTerm:', JSON.stringify(searchTerm), '→ words:', words);
+      console.log('[Búsqueda] Productos antes del filtro:', filtered.length);
+
+      if (words.length > 0) {
+        filtered = filtered.filter(product => {
+          const haystack = [
+            product.name,
+            product.description || '',
+            product.short_description || '',
+            ...(product.categories || []).map(c => c.name),
+            ...(product.tags || []).map(t => t.name),
+          ]
+            .filter(Boolean)
+            .map(normalize)
+            .join(' ');
+          const matches = words.every(word => haystack.includes(word));
+          return matches;
+        });
+      }
+
+      console.log('[Búsqueda] Productos después del filtro:', filtered.length);
+    }
+
+    // Filtrar por precio
+    if (minPrice || maxPrice) {
+      filtered = filtered.filter(product => {
+        const price = parseFloat(product.price);
+        const min = minPrice ? parseFloat(minPrice) : 0;
+        const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+        return price >= min && price <= max;
+      });
+    }
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':  return a.name.localeCompare(b.name);
+        case '-name': return b.name.localeCompare(a.name);
+        case 'price': return parseFloat(a.price) - parseFloat(b.price);
+        case '-price': return parseFloat(b.price) - parseFloat(a.price);
+        default: return 0;
+      }
+    });
+
+    setProducts(filtered);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProducts, searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev =>
@@ -416,7 +438,10 @@ export default function ProductosPage() {
             Catálogo de Productos
           </h1>
           <p className="text-gray-600">
-            {products.length} producto{products.length !== 1 ? 's' : ''} disponible{products.length !== 1 ? 's' : ''}
+            {getActiveFiltersCount() > 0
+              ? `${products.length} de ${allProducts.length} producto${allProducts.length !== 1 ? 's' : ''}`
+              : `${allProducts.length} producto${allProducts.length !== 1 ? 's' : ''} disponible${allProducts.length !== 1 ? 's' : ''}`
+            }
           </p>
         </div>
 
