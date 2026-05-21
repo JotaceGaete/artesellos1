@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getProducts, getCategories } from '@/lib/woocommerce';
+import { getProducts } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { Product as ProductType } from '@/types/product';
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
@@ -102,11 +102,11 @@ export default function ProductosPage() {
   const [allProducts, setAllProducts] = useState<ProductType[]>([]);
   // products: resultado filtrado derivado de allProducts (sin fetch adicional)
   const [products, setProducts] = useState<ProductType[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
+  // selectedCategories guarda slugs normalizados (ej: "automaticos", "fechadores")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
@@ -123,9 +123,40 @@ export default function ProductosPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 12;
 
+  // Categorías derivadas de los productos reales (nunca hardcodeadas)
+  const categories = useMemo(() => {
+    const map = new Map<string, { displayName: string; count: number }>();
+    allProducts.forEach(product => {
+      (product.categories || []).forEach(cat => {
+        if (!cat.name) return;
+        const slug = normalize(cat.name);
+        if (!slug || slug === 'general') return;
+        const prev = map.get(slug);
+        if (prev) {
+          map.set(slug, { ...prev, count: prev.count + 1 });
+        } else {
+          // Capitalizar primera letra de cada palabra para display
+          const displayName = cat.name
+            .toLowerCase()
+            .replace(/(?:^|\s)\S/g, c => c.toUpperCase());
+          map.set(slug, { displayName, count: 1 });
+        }
+      });
+    });
+    const result = Array.from(map.entries())
+      .map(([slug, { displayName, count }], i) => ({
+        id: i + 1,
+        name: displayName,
+        slug,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+    console.log('[Categorías reales]', result.map(c => `${c.name} (${c.slug}) x${c.count}`));
+    return result;
+  }, [allProducts]);
+
   // Carga inicial: solo UNA vez al montar el componente
   useEffect(() => {
-    loadCategories();
     loadAllProducts();
   }, []);
 
@@ -136,28 +167,17 @@ export default function ProductosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, allProducts]);
 
-  const loadCategories = async () => {
-    try {
-      const categoriesData = await getCategories();
-      setCategories(categoriesData || []);
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  };
-
   // Fetch único: carga todos los productos y los guarda en allProducts
   const loadAllProducts = async () => {
     try {
       setLoading(true);
       const result = await getProducts({ per_page: 100 });
       const converted = (result.products || []).map(convertWooCommerceToProductType);
-      console.log('[Productos] Cargados desde Supabase:', converted.length, 'productos');
       if (converted.length > 0) {
-        console.log('[Productos] Ejemplo:', {
-          name: converted[0].name,
-          categories: converted[0].categories,
-          description: (converted[0].description || '').slice(0, 80),
-        });
+        console.log('[Producto completo]', converted[0]);
+        console.log('[Categorías únicas reales]',
+          Array.from(new Set(converted.flatMap(p => (p.categories || []).map(c => c.name))))
+        );
       }
       setAllProducts(converted);
     } catch (error) {
@@ -172,10 +192,10 @@ export default function ProductosPage() {
   const applyFilters = useCallback(() => {
     let filtered = [...allProducts];
 
-    // Filtrar por categorías (sidebar checkboxes)
+    // Filtrar por categorías: ambos lados normalizados para comparar sin acentos ni case
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(product =>
-        product.categories.some(cat => selectedCategories.includes(cat.id.toString()))
+        product.categories.some(cat => selectedCategories.includes(normalize(cat.name)))
       );
     }
 
@@ -341,15 +361,18 @@ export default function ProductosPage() {
         {categoryExpanded && (
           <div className="mt-4 space-y-3">
             {categories.slice(0, 8).map(category => (
-              <label key={category.id} className="flex items-center gap-2 cursor-pointer group">
+              <label key={category.slug} className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
-                  checked={selectedCategories.includes(category.id.toString())}
-                  onChange={() => toggleCategory(category.id.toString())}
+                  checked={selectedCategories.includes(category.slug)}
+                  onChange={() => toggleCategory(category.slug)}
                   className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900">
                   {category.name}
+                  {category.count !== undefined && (
+                    <span className="ml-1 text-xs text-gray-400">({category.count})</span>
+                  )}
                 </span>
               </label>
             ))}
