@@ -1,8 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { FIXED_CATEGORIES } from '@/lib/woocommerce'
 import { useRouter } from 'next/navigation'
+import ProductImageUploader from '@/components/admin/ProductImageUploader'
+
+interface UploadState {
+  id: string
+  name: string
+  status: 'uploading' | 'error'
+  error?: string
+}
 
 export default function NuevoProductoPage() {
   const router = useRouter()
@@ -11,10 +19,56 @@ export default function NuevoProductoPage() {
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
   const [shortDescription, setShortDescription] = useState('')
-  const [images, setImages] = useState<string>('')
+  const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState<UploadState[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleUpload = useCallback(async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (fileArray.length === 0) return
+
+    const items: UploadState[] = fileArray.map(f => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      name: f.name,
+      status: 'uploading',
+    }))
+
+    setUploadingFiles(prev => [...prev, ...items])
+
+    const uploaded: string[] = []
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i]
+      const item = items[i]
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/admin/upload-image', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Error al subir')
+        uploaded.push(data.url)
+        setUploadingFiles(prev => prev.filter(u => u.id !== item.id))
+      } catch (err) {
+        setUploadingFiles(prev =>
+          prev.map(u =>
+            u.id === item.id
+              ? { ...u, status: 'error', error: err instanceof Error ? err.message : 'Error' }
+              : u,
+          ),
+        )
+      }
+    }
+
+    if (uploaded.length > 0) {
+      setImageUrls(prev => [...prev, ...uploaded])
+    }
+  }, [])
+
+  const handleRemove = useCallback((url: string) => {
+    setImageUrls(prev => prev.filter(u => u !== url))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,10 +85,7 @@ export default function NuevoProductoPage() {
           price: Number(price.replace(/\D/g, '')),
           description,
           short_description: shortDescription,
-          images: images
-            .split(/\n|,/) // coma o salto de línea
-            .map(s => s.trim())
-            .filter(Boolean),
+          images: imageUrls,
           categories,
         }),
       })
@@ -45,8 +96,8 @@ export default function NuevoProductoPage() {
       }
 
       router.push('/admin')
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setSubmitting(false)
     }
@@ -92,8 +143,13 @@ export default function NuevoProductoPage() {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Imágenes (una por línea o separadas por coma)</label>
-          <textarea value={images} onChange={e => setImages(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-[120px]" placeholder="https://artesellos.cl/imagen1.webp\nhttps://artesellos.cl/imagen2.webp" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Imágenes</label>
+          <ProductImageUploader
+            urls={imageUrls}
+            uploading={uploadingFiles}
+            onUpload={handleUpload}
+            onRemove={handleRemove}
+          />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -107,5 +163,3 @@ export default function NuevoProductoPage() {
     </div>
   )
 }
-
-
