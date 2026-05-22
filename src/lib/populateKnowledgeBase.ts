@@ -5,15 +5,18 @@
 import OpenAI from 'openai';
 import { createSupabaseAdmin } from './supabaseServer';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY no configurado');
+  return new OpenAI({ apiKey });
+}
 
 /**
  * Genera un embedding para un texto usando OpenAI
  */
 async function generateEmbedding(text: string): Promise<number[]> {
   try {
+    const openai = getOpenAI();
     const response = await openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: text,

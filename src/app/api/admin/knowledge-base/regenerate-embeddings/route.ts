@@ -1,19 +1,21 @@
-// Ruta para regenerar embeddings de todos los fragmentos que no los tienen
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import OpenAI from 'openai';
 import { requireAdminSession } from '@/lib/adminSession';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: NextRequest) {
   try {
     const authError = await requireAdminSession(req);
     if (authError) return authError;
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'OPENAI_API_KEY no configurado' }, { status: 500 });
+    }
+    const openai = new OpenAI({ apiKey });
 
     const supabase = createSupabaseAdmin();
     
