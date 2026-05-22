@@ -38,33 +38,21 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
 
-            {/* IZQUIERDA: LOGO + MARCA */}
+            {/* IZQUIERDA: LOGO */}
             <div className="flex-shrink-0">
               <Link
                 href="/"
-                className="group flex items-center gap-2.5 rounded-xl p-1 outline-none transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                aria-label="Artesellos — ir al inicio"
               >
-                {/* Logo */}
-                <div className="relative w-11 h-11 flex-shrink-0 rounded-xl bg-indigo-50 ring-1 ring-indigo-100 shadow-sm grid place-items-center transition-transform duration-200 group-hover:scale-[1.05]">
-                  <Image
-                    src="/logo.svg"
-                    alt="Artesellos Logo"
-                    width={28}
-                    height={28}
-                    className="object-contain drop-shadow-sm"
-                    priority
-                  />
-                </div>
-
-                {/* Texto marca */}
-                <div className="hidden sm:flex flex-col">
-                  <span className="text-[18px] font-extrabold text-gray-900 tracking-[-0.02em] leading-none">
-                    Artesellos
-                  </span>
-                  <span className="mt-1 text-[11px] text-gray-500 tracking-wide leading-none">
-                    Timbres personalizados
-                  </span>
-                </div>
+                <Image
+                  src="/artesellos-logo.svg"
+                  alt="Artesellos"
+                  width={190}
+                  height={40}
+                  className="w-[150px] sm:w-[190px] h-auto object-contain"
+                  priority
+                />
               </Link>
             </div>
 
