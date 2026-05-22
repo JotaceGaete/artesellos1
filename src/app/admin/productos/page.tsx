@@ -11,30 +11,48 @@ interface RawProduct {
   slug: string;
   price: number;
   images?: unknown;
+  imageUrls?: unknown;
   categories?: string[];
   stock_status?: string;
   stock_quantity?: number | null;
 }
 
-function getFirstImageUrl(images: unknown): string | null {
-  if (!images) return null;
-  if (Array.isArray(images) && images.length > 0) {
-    const first = images[0];
-    if (typeof first === 'string' && first.trim()) return first.trim();
-    if (first && typeof first === 'object') {
-      const o = first as Record<string, unknown>;
-      return (typeof o.src === 'string' && o.src) ||
-             (typeof o.url === 'string' && o.url) ||
-             (typeof o.image === 'string' && o.image) ||
-             null;
+function extractUrl(value: unknown): string | null {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const url = extractUrl(item);
+      if (url) return url;
     }
+    return null;
   }
-  if (typeof images === 'string' && images.trim()) return images.trim();
-  if (images && typeof images === 'object' && !Array.isArray(images)) {
-    const o = images as Record<string, unknown>;
-    return (typeof o.src === 'string' && o.src) || (typeof o.url === 'string' && o.url) || null;
+
+  if (typeof value === 'string') {
+    const s = value.trim();
+    if (!s) return null;
+    // JSON-stringified array or object — parse and recurse
+    if (s[0] === '[' || s[0] === '{') {
+      try {
+        return extractUrl(JSON.parse(s));
+      } catch {
+        // not valid JSON; treat as plain URL only if it looks like one
+        return s.startsWith('http') ? s : null;
+      }
+    }
+    return s;
   }
+
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    return extractUrl(o.src) ?? extractUrl(o.url) ?? extractUrl(o.image) ?? null;
+  }
+
   return null;
+}
+
+function getPrimaryImage(p: RawProduct): string | null {
+  return extractUrl(p.images) ?? extractUrl(p.imageUrls) ?? null;
 }
 
 function formatCLP(n?: number | string) {
@@ -69,7 +87,7 @@ function ProductCard({
   onDelete: (p: RawProduct) => void;
 }) {
   const [imgError, setImgError] = useState(false);
-  const imgUrl = !imgError ? getFirstImageUrl(p.images) : null;
+  const imgUrl = !imgError ? getPrimaryImage(p) : null;
 
   return (
     <div className="group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-200">
