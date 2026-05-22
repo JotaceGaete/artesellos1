@@ -1,24 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <style>
-      .stamp-bg { fill: #3B82F6; }
-      .stamp-text { fill: white; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; }
-      .stamp-border { fill: none; stroke: #1E40AF; stroke-width: 3; }
-    </style>
-  </defs>
-
-  <!-- Fondo circular -->
-  <circle cx="50" cy="50" r="45" class="stamp-bg"/>
-
-  <!-- Borde -->
-  <circle cx="50" cy="50" r="45" class="stamp-border"/>
-
-  <!-- Texto "A" para Artesellos -->
-  <text x="50" y="65" text-anchor="middle" class="stamp-text">A</text>
-
-  <!-- Pequeño sello decorativo -->
-  <circle cx="30" cy="30" r="3" fill="white"/>
-  <circle cx="70" cy="30" r="3" fill="white"/>
-  <circle cx="30" cy="70" r="3" fill="white"/>
-  <circle cx="70" cy="70" r="3" fill="white"/>
+  <!-- Dark navy background -->
+  <rect width="100" height="100" rx="18" fill="#0F172A"/>
+  <!-- Purple arch accent — sits behind the A, visible through its counter -->
+  <path d="M35 76 L35 60 A15 15 0 0 0 65 60 L65 76 Z" fill="#7C3AED"/>
+  <!-- Bold white A -->
+  <text
+    x="50"
+    y="77"
+    text-anchor="middle"
+    font-family="Arial,'Helvetica Neue',sans-serif"
+    font-weight="900"
+    font-size="67"
+    fill="white"
+  >A</text>
 </svg>
