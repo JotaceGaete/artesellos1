@@ -63,7 +63,7 @@ export default function ContactForm() {
             <p className="mb-3">
               Tu mensaje quedó registrado con el ID <strong>#{success.contactId}</strong>. 
               Si querés acelerar la respuesta, escribinos a{' '}
-              <strong>soporte@artesellos.cl</strong> citando este ID.
+              <strong>artesellos@outlook.com</strong> citando este ID.
             </p>
           </div>
 

@@ -140,7 +140,7 @@ export default function ContactPage() {
                     >
                       contacto@artesellos.cl
                     </a>
-                    <p className="text-sm text-gray-500 mt-1">Respondemos en 24 horas</p>
+                    <p className="text-sm text-gray-500 mt-1">Te responderemos de forma rápida</p>
                   </div>
                 </div>
               </div>
