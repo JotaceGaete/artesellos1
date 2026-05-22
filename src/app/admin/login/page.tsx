@@ -4,12 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const ADMIN_PASSWORD = 'artesellos2024';
-
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -21,14 +20,31 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('admin_authenticated', 'true');
-      router.push('/admin');
-    } else {
-      setError('Contraseña incorrecta');
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      if (res.ok) {
+        sessionStorage.setItem('admin_authenticated', 'true');
+        router.push('/admin');
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Contraseña incorrecta');
+        setPassword('');
+      }
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.');
       setPassword('');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -71,6 +87,7 @@ export default function AdminLoginPage() {
                 placeholder="Ingresa la contraseña"
                 autoFocus
                 autoComplete="current-password"
+                disabled={isSubmitting}
               />
               {error && (
                 <p className="mt-2 text-sm text-red-600">{error}</p>
@@ -79,9 +96,10 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              disabled={isSubmitting}
+              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
-              Entrar al panel
+              {isSubmitting ? 'Verificando...' : 'Entrar al panel'}
             </button>
           </form>
         </div>

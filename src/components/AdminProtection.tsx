@@ -7,8 +7,6 @@ interface AdminProtectionProps {
   children: React.ReactNode;
 }
 
-const ADMIN_PASSWORD = 'artesellos2024';
-
 export default function AdminProtection({ children }: AdminProtectionProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,5 +51,3 @@ export default function AdminProtection({ children }: AdminProtectionProps) {
     </div>
   );
 }
-
-export { ADMIN_PASSWORD };
