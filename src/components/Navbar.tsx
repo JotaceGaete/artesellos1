@@ -46,11 +46,11 @@ export default function Navbar() {
                 aria-label="Artesellos — ir al inicio"
               >
                 <Image
-                  src="/artesellos-logo.svg"
+                  src="/artesellos-logo.png"
                   alt="Artesellos"
-                  width={190}
-                  height={40}
-                  className="w-[150px] sm:w-[190px] h-auto object-contain"
+                  width={220}
+                  height={46}
+                  className="w-[150px] sm:w-[190px] lg:w-[210px] h-auto object-contain"
                   priority
                 />
               </Link>
