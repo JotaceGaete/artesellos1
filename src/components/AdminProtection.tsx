@@ -13,18 +13,20 @@ export default function AdminProtection({ children }: AdminProtectionProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('admin_authenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-      setIsLoading(false);
-    } else {
-      router.replace('/admin/login');
-    }
+    fetch('/api/admin/me')
+      .then(res => {
+        if (res.ok) {
+          setIsAuthenticated(true);
+          setIsLoading(false);
+        } else {
+          router.replace('/admin/login');
+        }
+      })
+      .catch(() => router.replace('/admin/login'));
   }, [router]);
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('admin_authenticated');
+  const handleLogout = async () => {
+    await fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
     router.push('/admin/login');
   };
 

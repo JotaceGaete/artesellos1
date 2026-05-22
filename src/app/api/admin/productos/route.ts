@@ -1,23 +1,14 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServer, getUser, createSupabaseAdmin } from '@/lib/supabaseServer'
-
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-])
+import { createSupabaseAdmin } from '@/lib/supabaseServer'
+import { requireAdminSession } from '@/lib/adminSession'
 
 // GET - Listar productos
 export async function GET(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'
-    if (!BYPASS) {
-      const user = await getUser()
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 })
-      }
-    }
+    const authError = await requireAdminSession(req)
+    if (authError) return authError
 
     const supabase = createSupabaseAdmin()
     const { searchParams } = new URL(req.url)
@@ -45,13 +36,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'
-    if (!BYPASS) {
-      const user = await getUser()
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 })
-      }
-    }
+    const authError = await requireAdminSession(req)
+    if (authError) return authError
 
     const body = await req.json().catch(() => ({}))
     const { name, slug, price, description, short_description, images, categories } = body as {

@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdminSession } from '@/lib/adminSession';
 
 const BUCKET = 'product-images';
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -28,6 +29,9 @@ async function ensureBucket(supabase: ReturnType<typeof getAdminClient>) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 

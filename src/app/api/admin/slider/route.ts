@@ -1,21 +1,15 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer'
+import { createSupabaseAdmin } from '@/lib/supabaseServer'
+import { requireAdminSession } from '@/lib/adminSession'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-])
-
-function authorizeOrBypass() {
-  return process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production'
-}
-
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authError = await requireAdminSession(req)
+  if (authError) return authError
   try {
     console.log('🔍 Intentando cargar slides desde Supabase...')
     
@@ -43,12 +37,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!authorizeOrBypass()) {
-      const user = await getUser()
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 })
-      }
-    }
+    const authError = await requireAdminSession(req)
+    if (authError) return authError
 
     const supabase = createSupabaseAdmin()
     const body = await req.json()

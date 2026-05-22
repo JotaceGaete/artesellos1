@@ -1,32 +1,17 @@
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer';
+import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdminSession } from '@/lib/adminSession';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-]);
-
-function authorizeOrBypass() {
-  return process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-}
-
 // GET: Listar todo el stock (con filtros opcionales)
 export async function GET(req: NextRequest) {
   try {
-    if (!authorizeOrBypass()) {
-      const user = await getUser();
-      if (!user || !ALLOWED_ADMIN_EMAILS.has(user.email || '')) {
-        return NextResponse.json(
-          { error: 'No autorizado' },
-          { status: 403 }
-        );
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const supabase = createSupabaseAdmin();
     
@@ -74,15 +59,8 @@ export async function GET(req: NextRequest) {
 // POST: Actualizar o insertar stock (upsert masivo)
 export async function POST(req: NextRequest) {
   try {
-    if (!authorizeOrBypass()) {
-      const user = await getUser();
-      if (!user || !ALLOWED_ADMIN_EMAILS.has(user.email || '')) {
-        return NextResponse.json(
-          { error: 'No autorizado' },
-          { status: 403 }
-        );
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const body = await req.json();
     const { items } = body;

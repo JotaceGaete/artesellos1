@@ -2,13 +2,9 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer';
+import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import OpenAI from 'openai';
-
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-]);
+import { requireAdminSession } from '@/lib/adminSession';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -16,13 +12,8 @@ const openai = new OpenAI({
 
 export async function POST(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const supabase = createSupabaseAdmin();
     

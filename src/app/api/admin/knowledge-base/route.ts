@@ -1,93 +1,42 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer';
+import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import { insertKnowledge, populateExampleKnowledge } from '@/lib/populateKnowledgeBase';
-
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-]);
+import { requireAdminSession } from '@/lib/adminSession';
 
 // GET - Listar fragmentos de conocimiento
 export async function GET(req: NextRequest) {
   try {
-    // Permitir bypass si está configurado o si no estamos en producción
-    // IMPORTANTE: En producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en Vercel si no usas autenticación
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    
-    if (!BYPASS) {
-      try {
-        const user = await getUser();
-        console.log('🔐 Verificando autenticación:', { 
-          hasUser: !!user, 
-          email: user?.email,
-          isAllowed: user?.email ? ALLOWED_ADMIN_EMAILS.has(user.email) : false
-        });
-        
-        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-          console.log('⚠️ Usuario no autorizado');
-          return NextResponse.json({ 
-            message: 'No autorizado. Para usar sin autenticación en producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en las variables de entorno de Vercel.'
-          }, { status: 401 });
-        }
-      } catch (authError: unknown) {
-        console.error('❌ Error en autenticación:', authError);
-        const errorMessage = authError instanceof Error ? authError.message : String(authError);
-        
-        // Si hay un error de autenticación y no está configurado el bypass, rechazar
-        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
-          return NextResponse.json({ 
-            message: 'Error de autenticación. Para usar sin autenticación en producción, configura NEXT_PUBLIC_ADMIN_BYPASS=true en las variables de entorno de Vercel.',
-            error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-          }, { status: 401 });
-        }
-        // Si el bypass está configurado, continuar
-        console.log('✅ Bypass activado por configuración');
-      }
-    } else {
-      console.log('✅ Bypass activado (desarrollo o NEXT_PUBLIC_ADMIN_BYPASS=true)');
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const supabase = createSupabaseAdmin();
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Consultar solo las columnas que sabemos que existen
-    // Intentar con created_at, si falla, usar solo id y content
-    let query = (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('knowledge_base')
       .select('id, content')
       .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    const { data, error } = await query;
-
     if (error) {
       console.error('❌ Error al listar conocimiento:', error);
-      console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: error.message || 'Error al cargar fragmentos',
         details: error.details || error.hint || null
       }, { status: 500 });
     }
 
-    // Obtener total para paginación
     const { count, error: countError } = await (supabase as any)
       .from('knowledge_base')
       .select('*', { count: 'exact', head: true });
 
-    if (countError) {
-      console.warn('⚠️ Error al obtener count:', countError);
-    }
+    if (countError) console.warn('⚠️ Error al obtener count:', countError);
 
-    return NextResponse.json({
-      items: data || [],
-      total: count || 0,
-      limit,
-      offset,
-    });
+    return NextResponse.json({ items: data || [], total: count || 0, limit, offset });
   } catch (err: any) {
     console.error('❌ Error en GET knowledge-base:', err);
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
@@ -97,50 +46,28 @@ export async function GET(req: NextRequest) {
 // POST - Insertar nuevo fragmento o poblar con ejemplos
 export async function POST(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    
-    if (!BYPASS) {
-      try {
-        const user = await getUser();
-        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-        }
-      } catch (authError) {
-        console.error('❌ Error en autenticación:', authError);
-        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
-          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
-        }
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const body = await req.json().catch(() => ({}));
     const { action, content, contents } = body;
 
-    // Acción especial: poblar con ejemplos
     if (action === 'populate_examples') {
       try {
         await populateExampleKnowledge();
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Base de conocimiento poblada con ejemplos exitosamente' 
-        });
+        return NextResponse.json({ success: true, message: 'Base de conocimiento poblada con ejemplos exitosamente' });
       } catch (error: any) {
         console.error('❌ Error al poblar ejemplos:', error);
-        return NextResponse.json({ 
-          success: false, 
-          message: error?.message || 'Error al poblar ejemplos' 
-        }, { status: 500 });
+        return NextResponse.json({ success: false, message: error?.message || 'Error al poblar ejemplos' }, { status: 500 });
       }
     }
 
-    // Insertar múltiples fragmentos
     if (action === 'insert_multiple' && Array.isArray(contents)) {
       const results = [];
       for (const contentItem of contents) {
         if (typeof contentItem === 'string' && contentItem.trim()) {
           const result = await insertKnowledge(contentItem.trim());
           results.push(result);
-          // Pequeña pausa para evitar rate limiting
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
@@ -152,27 +79,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Insertar un solo fragmento
     if (!content || typeof content !== 'string' || !content.trim()) {
-      return NextResponse.json({ 
-        message: 'El campo "content" es requerido y debe ser un string no vacío' 
-      }, { status: 400 });
+      return NextResponse.json({ message: 'El campo "content" es requerido y debe ser un string no vacío' }, { status: 400 });
     }
 
     const result = await insertKnowledge(content.trim());
-
     if (!result.success) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Error al insertar fragmento de conocimiento' 
-      }, { status: 500 });
+      return NextResponse.json({ success: false, message: 'Error al insertar fragmento de conocimiento' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      id: result.id,
-      message: 'Fragmento de conocimiento insertado exitosamente',
-    });
+    return NextResponse.json({ success: true, id: result.id, message: 'Fragmento de conocimiento insertado exitosamente' });
   } catch (err: any) {
     console.error('❌ Error en POST knowledge-base:', err);
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
@@ -182,21 +98,8 @@ export async function POST(req: NextRequest) {
 // PUT - Actualizar fragmento existente
 export async function PUT(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    
-    if (!BYPASS) {
-      try {
-        const user = await getUser();
-        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-        }
-      } catch (authError) {
-        console.error('❌ Error en autenticación:', authError);
-        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
-          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
-        }
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const body = await req.json().catch(() => ({}));
     const { id, content } = body;
@@ -204,18 +107,12 @@ export async function PUT(req: NextRequest) {
     if (!id || typeof id !== 'number') {
       return NextResponse.json({ message: 'El campo "id" es requerido y debe ser un número' }, { status: 400 });
     }
-
     if (!content || typeof content !== 'string' || !content.trim()) {
-      return NextResponse.json({ 
-        message: 'El campo "content" es requerido y debe ser un string no vacío' 
-      }, { status: 400 });
+      return NextResponse.json({ message: 'El campo "content" es requerido y debe ser un string no vacío' }, { status: 400 });
     }
 
-    // Regenerar embedding para el contenido actualizado
     const OpenAI = (await import('openai')).default;
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const embeddingResponse = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -223,22 +120,11 @@ export async function PUT(req: NextRequest) {
     });
 
     const embedding = embeddingResponse.data[0].embedding;
-
     const supabase = createSupabaseAdmin();
-    
-    // Construir objeto de actualización - solo content y embedding
-    // NO incluir updated_at ya que la columna no existe en la tabla
-    const updateData = {
-      content: content.trim(),
-      embedding: embedding,
-    };
-    
-    console.log('🔄 Actualizando fragmento ID:', id);
-    console.log('📝 Contenido:', content.substring(0, 50) + '...');
-    
+
     const { data, error } = await (supabase as any)
       .from('knowledge_base')
-      .update(updateData)
+      .update({ content: content.trim(), embedding })
       .eq('id', id)
       .select('id, content')
       .single();
@@ -248,11 +134,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data,
-      message: 'Fragmento de conocimiento actualizado exitosamente',
-    });
+    return NextResponse.json({ success: true, data, message: 'Fragmento de conocimiento actualizado exitosamente' });
   } catch (err: any) {
     console.error('❌ Error en PUT knowledge-base:', err);
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
@@ -262,21 +144,8 @@ export async function PUT(req: NextRequest) {
 // DELETE - Eliminar fragmento
 export async function DELETE(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    
-    if (!BYPASS) {
-      try {
-        const user = await getUser();
-        if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-          return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-        }
-      } catch (authError) {
-        console.error('❌ Error en autenticación:', authError);
-        if (process.env.NEXT_PUBLIC_ADMIN_BYPASS !== 'true') {
-          return NextResponse.json({ message: 'Error de autenticación' }, { status: 401 });
-        }
-      }
-    }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -286,23 +155,16 @@ export async function DELETE(req: NextRequest) {
     }
 
     const supabase = createSupabaseAdmin();
-    const { error } = await supabase
-      .from('knowledge_base')
-      .delete()
-      .eq('id', parseInt(id));
+    const { error } = await supabase.from('knowledge_base').delete().eq('id', parseInt(id));
 
     if (error) {
       console.error('❌ Error al eliminar:', error);
       return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Fragmento de conocimiento eliminado exitosamente',
-    });
+    return NextResponse.json({ success: true, message: 'Fragmento de conocimiento eliminado exitosamente' });
   } catch (err: any) {
     console.error('❌ Error en DELETE knowledge-base:', err);
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
   }
 }
-

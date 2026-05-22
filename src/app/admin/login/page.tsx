@@ -12,12 +12,10 @@ export default function AdminLoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('admin_authenticated');
-    if (authStatus === 'true') {
-      router.replace('/admin');
-    } else {
-      setIsLoading(false);
-    }
+    fetch('/api/admin/me')
+      .then(res => { if (res.ok) router.replace('/admin'); })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,7 +31,6 @@ export default function AdminLoginPage() {
       });
 
       if (res.ok) {
-        sessionStorage.setItem('admin_authenticated', 'true');
         router.push('/admin');
       } else {
         const data = await res.json();
