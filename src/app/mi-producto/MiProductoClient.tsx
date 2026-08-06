@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { publicEnv } from '@/lib/env/public';
 
 export default function MiProductoClient() {
   const [producto, setProducto] = useState<any>(null);
@@ -15,8 +16,8 @@ export default function MiProductoClient() {
         console.log('🚀 Cargando TU producto real desde Supabase...');
         
         const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+          publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
         );
         
         const { data: supabaseProducts, error: fetchError } = await supabase

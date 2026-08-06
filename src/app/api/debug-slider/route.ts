@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { publicEnv } from '@/lib/env/public';
 
 export async function GET() {
   try {
@@ -21,8 +22,8 @@ export async function GET() {
     }
 
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
     console.log('🔍 Debug: Consultando tabla slider_slides...');

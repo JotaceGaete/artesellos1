@@ -3,16 +3,17 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdminSession } from '@/lib/adminSession';
+import { publicEnv } from '@/lib/env/public';
+import { SUPABASE_SERVICE_ROLE_KEY } from '@/lib/env/server/supabase';
 
 const BUCKET = 'product-images';
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Supabase config missing');
-  return createClient(url, key, { auth: { persistSession: false } });
+  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
 }
 
 async function ensureBucket(supabase: ReturnType<typeof getAdminClient>) {

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_SESSION_SECRET } from '@/lib/env/server/admin-session';
 
 export const ADMIN_COOKIE = 'admin_session';
 const MAX_AGE_SEC = 60 * 60 * 8; // 8 hours
 
 function getSigningSecret(): string {
-  const secret =
-    process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!secret) throw new Error('No admin session secret configured');
-  return secret;
+  return ADMIN_SESSION_SECRET;
 }
 
 async function importKey(secret: string): Promise<CryptoKey> {

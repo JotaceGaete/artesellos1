@@ -1,24 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
+import { publicEnv } from '@/lib/env/public';
 // NOTA: NO importar createSupabaseServer aquí para evitar conflictos con Client Components
 
-// Configuración de Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-// Debug de variables de entorno
-console.log('🔧 Supabase URL:', supabaseUrl ? 'Configurada ✅' : 'No configurada ❌');
-console.log('🔧 Supabase Key:', supabaseAnonKey ? 'Configurada ✅' : 'No configurada ❌');
-
 // Cliente de Supabase para el cliente (browser)
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(
+  publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+  publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+);
 
 // Cliente de Supabase para el servidor (SSR)
-export const supabaseServer = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-  },
-});
+export const supabaseServer = createClient<Database>(
+  publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+  publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  { auth: { persistSession: false } },
+);
 
 // Tipos para las tablas de Supabase
 export interface Product {
