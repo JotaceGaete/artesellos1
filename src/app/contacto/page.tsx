@@ -102,8 +102,10 @@ export default function ContactPage() {
                     <span className="text-2xl">📍</span>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Ubicación</h3>
-                    <p className="text-gray-600">Bannen 83, Coronel</p>
+                    <h3 className="font-semibold text-gray-900 mb-1">Fábrica y domicilio tributario</h3>
+                    <p className="text-gray-600">Pasaje Minero Héctor Inostroza Arévalo 2311, Coronel</p>
+                    <h3 className="font-semibold text-gray-900 mt-4 mb-1">Entregas y retiro de pedidos</h3>
+                    <p className="text-gray-600">Bannen 83, local 4, centro de Coronel</p>
                     <p className="text-sm text-gray-500 mt-1">Chile</p>
                   </div>
                 </div>
@@ -149,11 +151,11 @@ export default function ContactPage() {
             {/* Mapa de Google Maps */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-100">
               <h3 className="font-bold text-gray-900 mb-4 text-lg">
-                Encuéntranos aquí
+                Punto de entrega y retiro de pedidos
               </h3>
               <div className="w-full h-80 rounded-xl overflow-hidden">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3171.234567890123!2d-73.1462860!3d-37.0292160!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzfCsDAxJzQ1LjIiUyA3M8KwMDgnNDYuNiJX!5e0!3m2!1ses!2scl!4v1234567890"
+                  src="https://www.google.com/maps?q=Bannen%2083%2C%20Coronel%2C%20Chile&output=embed"
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
@@ -165,7 +167,7 @@ export default function ContactPage() {
               </div>
               <p className="text-sm text-gray-500 mt-3 text-center">
                 <a
-                  href="https://www.google.com/maps/place/Bannen+83,+Coronel,+Chile"
+                  href="https://www.google.com/maps/search/?api=1&query=Bannen%2083%2C%20Coronel%2C%20Chile"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-indigo-600 hover:text-indigo-700 font-medium"
