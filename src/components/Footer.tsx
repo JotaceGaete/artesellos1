@@ -89,7 +89,11 @@ export default function Footer() {
               </div>
               <div className="inline-flex items-center gap-2">
                 <span>📍</span>
-                <span>Bannen 83 L 4, Coronel</span>
+                <span>Fábrica: Pasaje Minero Héctor Inostroza Arévalo 2311, Coronel</span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <span>📦</span>
+                <span>Entregas y retiro: Bannen 83, local 4, Coronel</span>
               </div>
             </div>
           </div>
