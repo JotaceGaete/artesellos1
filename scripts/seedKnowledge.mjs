@@ -1,3 +1,8 @@
+// DESACTIVADO (2026-11-25): este script insertaba textos antiguos (medidas, modelos y datos que ya no
+// corresponden) sin borrar nada. La base de conocimiento se mantiene desde el panel admin y la limpieza SQL.
+// Para regenerar embeddings usa: node scripts/regenerarEmbeddingsGenerales.mjs --ejecutar
+console.error('seed:knowledge desactivado. No ejecutar: reinsertaría contenido obsoleto. Ver el comentario del archivo.');
+process.exit(1);
 // scripts/seedKnowledge.js
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';

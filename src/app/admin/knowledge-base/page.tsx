@@ -73,7 +73,11 @@ function MetaFields({ meta, setMeta }: { meta: Meta; setMeta: (m: Meta) => void 
         <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
         <input
           value={meta.category}
-          onChange={(e) => set({ category: e.target.value })}
+          onChange={(e) => set({
+            category: e.target.value,
+            // Al marcar una FAQ oficial, se desactiva el embedding por defecto.
+            generate_embedding: e.target.value.trim() === 'oficial' ? false : meta.generate_embedding,
+          })}
           placeholder="envios, horarios, marcas…"
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         />
@@ -287,7 +291,8 @@ export default function KnowledgeBasePage() {
       aliases: (item.aliases ?? []).join('\n'),
       active: item.active !== false,
       sort_order: String(item.sort_order ?? 100),
-      generate_embedding: true,
+      // FAQ oficiales: sin embedding por defecto (no consume OpenAI al guardar).
+      generate_embedding: (item.category ?? '') !== 'oficial',
     });
     setIsAdding(false);
   };

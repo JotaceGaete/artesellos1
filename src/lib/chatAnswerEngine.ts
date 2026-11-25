@@ -12,7 +12,11 @@ export type FaqRow = {
   question: string | null;
   aliases: string[] | null;
   sort_order: number;
+  category?: string | null;
 };
+
+/** Fuente autorizada: FAQ oficiales (dirección, horarios, envíos, pagos, contacto, condiciones). */
+export const OFFICIAL_CATEGORY = 'oficial';
 
 export type StockRow = {
   marca: string;
@@ -45,8 +49,93 @@ export function normalizeText(input: string): string {
     .trim();
 }
 
+// Temas frecuentes con sus variantes coloquiales. Cada grupo se reduce a una palabra canónica.
+// Solo se agregan variantes que no tienen otro significado claro en el contexto de la tienda.
+// Solo variantes con un significado claro en el contexto comercial. Se excluyen palabras genéricas
+// ("queda", "llega", "formas", "medios", "tienda", "local", "métodos", "depósito", "retiro") porque
+// en otras frases cambian de sentido y producen falsos positivos.
+const TOPIC_GROUPS: Array<[string, string[]]> = [
+  ['envio', ['envio', 'envios', 'envia', 'envian', 'despacho', 'despachos', 'despachan', 'despachar',
+    'delivery', 'courier', 'starken', 'flete', 'fletes', 'mandan']],
+  ['costo', ['costo', 'costos', 'cuesta', 'cuestan', 'cobran', 'tarifa', 'tarifas', 'precio', 'precios']],
+  ['ubicacion', ['ubicacion', 'ubicaciones', 'ubicado', 'ubicados', 'ubicada', 'ubicadas', 'ubicar',
+    'ubican', 'ubicamos', 'direccion', 'direcciones', 'sucursal', 'sucursales']],
+  ['horario', ['horario', 'horarios', 'hora', 'atienden', 'atiende', 'atencion', 'abren', 'abre',
+    'abierto', 'abiertos', 'cierran', 'cierra', 'cerrado']],
+  ['correo', ['correo', 'correos', 'mail', 'mails', 'email', 'emails', 'gmail']],
+  ['contacto', ['contacto', 'contactos', 'contactar', 'contactarlos', 'contactarte', 'contactarme',
+    'telefono', 'telefonos', 'fono', 'celular', 'whatsapp', 'wsp', 'wasap', 'wpp']],
+  ['pago', ['pago', 'pagos', 'pagar', 'pagarlo', 'pagarla', 'pagan', 'pagas', 'transferencia',
+    'transferir', 'transferencias', 'tarjeta', 'tarjetas', 'webpay', 'mercadopago', 'efectivo']],
+  ['diseno', ['diseno', 'disenos', 'disenar', 'disenamos']],
+  ['disponibilidad', ['disponibilidad', 'disponible', 'disponibles', 'stock']],
+];
+
+const NOT_TYPOS = new Set(['previo', 'previa', 'previos', 'previas']);
+
+const TOPIC_WORDS = new Map<string, string>();
+for (const [canon, words] of TOPIC_GROUPS) for (const w of words) TOPIC_WORDS.set(w, canon);
+
+/** Distancia de edición (Levenshtein) para tolerar errores de tipeo. */
+function levenshtein(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+export type TextWord = { w: string; topic: boolean };
+
+/**
+ * Palabras de un texto en forma canónica. Un tema reconocido (sinónimo o errata cercana)
+ * se reemplaza por su palabra canónica y se marca como `topic`.
+ * Las erratas solo se corrigen en palabras largas y solo si hay una única corrección posible.
+ */
+export function canonicalWords(input: string, stop: Set<string>): TextWord[] {
+  const out: TextWord[] = [];
+  for (const t of normalizeText(input).split(' ')) {
+    if (!t || stop.has(t)) continue;
+    const direct = TOPIC_WORDS.get(t)
+      ?? (t.length > 3 && t.endsWith('s') ? TOPIC_WORDS.get(t.slice(0, -1)) : undefined);
+    if (direct) {
+      out.push({ w: direct, topic: true });
+      continue;
+    }
+    // Palabras reales que se parecen a un tema ("previo" ~ "precio"): nunca se corrigen como errata.
+    if (t.length >= 6 && !NOT_TYPOS.has(t)) {
+      const maxD = t.length >= 9 ? 2 : 1;
+      let best: string | null = null;
+      let bestD = Infinity;
+      let tie = false;
+      for (const [word, canon] of TOPIC_WORDS) {
+        if (word.length < 6 || Math.abs(word.length - t.length) > maxD) continue;
+        const d = levenshtein(t, word);
+        if (d > maxD) continue;
+        if (d < bestD) {
+          bestD = d;
+          best = canon;
+          tie = false;
+        } else if (d === bestD && canon !== best) {
+          tie = true;
+        }
+      }
+      if (best && !tie) {
+        out.push({ w: best, topic: true });
+        continue;
+      }
+    }
+    out.push({ w: t, topic: false });
+  }
+  return out;
+}
+
 function contentTokens(input: string): Set<string> {
-  return new Set(normalizeText(input).split(' ').filter(t => t && !STOP_WORDS.has(t)));
+  return new Set(canonicalWords(input, STOP_WORDS).map(x => x.w));
 }
 
 function jaccard(a: Set<string>, b: Set<string>): number {
@@ -54,6 +143,51 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   let inter = 0;
   for (const t of a) if (b.has(t)) inter++;
   return inter / (a.size + b.size - inter);
+}
+
+// Separadores de cláusulas: "y", comas, punto y coma, signos de pregunta, "además", "también".
+const CLAUSE_SPLIT = /\s*(?:[,;?¿!¡]|\by\b|\be\b|\badem[aá]s\b|\btambi[eé]n\b)\s*/i;
+
+/** Frases de una respuesta, para no repetir la misma oración de dos FAQ. */
+function sentencesOf(content: string): string[] {
+  return content.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+}
+
+export type MultiFaqAnswer = { content: string; pending: string[] };
+
+/**
+ * Consulta con varios temas ("cuanto cuesta el envio y el precio del timbre"):
+ * responde cada cláusula con su FAQ oficial, sin repetir oraciones iguales, y devuelve
+ * aparte las cláusulas comerciales que no tienen FAQ (para derivarlas a WhatsApp).
+ * Devuelve null si no se pudo responder ninguna cláusula.
+ */
+export function matchFaqClauses(query: string, rows: FaqRow[]): MultiFaqAnswer | null {
+  const clauses = query.split(CLAUSE_SPLIT).map(c => c.trim()).filter(c => normalizeText(c).length > 0);
+  if (clauses.length < 2) return null;
+
+  const usedRows = new Set<number>();
+  const seenSentences = new Set<string>();
+  const parts: string[] = [];
+  const pending: string[] = [];
+
+  for (const clause of clauses) {
+    const faq = matchFaq(clause, rows);
+    if (!faq) {
+      if (commercialTopics(clause).size > 0) pending.push(clause);
+      continue;
+    }
+    if (usedRows.has(faq.id)) continue;
+    usedRows.add(faq.id);
+    for (const sentence of sentencesOf(faq.content)) {
+      const key = normalizeText(sentence);
+      if (seenSentences.has(key)) continue;
+      seenSentences.add(key);
+      parts.push(sentence);
+    }
+  }
+
+  if (parts.length === 0) return null;
+  return { content: parts.join(' '), pending };
 }
 
 /**
@@ -86,8 +220,11 @@ export function matchFaq(query: string, rows: FaqRow[]): FaqRow | null {
 
   if (scored.length === 0) return null;
   const top = scored[0];
-  const rival = scored.find(x => x.row.id !== top.row.id);
-  // Ambigüedad: otra pregunta distinta con puntaje casi igual -> no responder directo.
+  // Ambigüedad: dos filas con la MISMA pregunta y respuestas distintas no se pueden decidir.
+  // Preguntas distintas (información complementaria) no bloquean: se responde la mejor coincidencia.
+  const sameQuestion = (a: FaqRow, b: FaqRow) =>
+    normalizeText(a.question ?? '') === normalizeText(b.question ?? '') && a.content !== b.content;
+  const rival = scored.find(x => x.row.id !== top.row.id && sameQuestion(x.row, top.row));
   if (rival && rival.best >= top.best - 0.05) return null;
   return top.row;
 }
@@ -225,17 +362,21 @@ const KB_STOP = new Set([
   'que', 'como', 'cual', 'cuales', 'cuanto', 'cuanta', 'cuantos', 'cuando', 'donde', 'para', 'por',
   'con', 'sin', 'hay', 'hacen', 'tienen', 'tiene', 'puedo', 'puede', 'quiero', 'quisiera', 'necesito',
   'favor', 'sobre', 'del', 'los', 'las', 'una', 'uno', 'unos', 'unas', 'pero', 'este', 'esta', 'hola',
-  'tengo', 'son', 'ser', 'estan', 'estoy', 'mas', 'muy',
+  'tengo', 'son', 'ser', 'estan', 'estoy', 'mas', 'muy', 'donde',
 ]);
 
+/** Palabras con sentido de la consulta (temas canónicos o palabras de 3+ letras). */
+function kbWords(text: string): TextWord[] {
+  return canonicalWords(text, KB_STOP).filter(x => x.topic || x.w.length >= 3);
+}
+
 /** Raíces de palabras (5 letras) para tolerar plurales y conjugaciones simples. */
+function stemOf(w: string): string {
+  return w.length > 5 ? w.slice(0, 5) : w;
+}
+
 function kbStems(text: string): Set<string> {
-  return new Set(
-    normalizeText(text)
-      .split(' ')
-      .filter(t => t.length >= 3 && !KB_STOP.has(t))
-      .map(t => (t.length > 5 ? t.slice(0, 5) : t)),
-  );
+  return new Set(kbWords(text).map(x => stemOf(x.w)));
 }
 
 export type KbRow = { id: number; content: string; question: string | null; aliases: string[] | null };
@@ -243,14 +384,23 @@ export type KbRow = { id: number; content: string; question: string | null; alia
 const KB_MIN_COVERAGE = 0.6;
 const KB_MIN_MARGIN = 0.15;
 
+/** Temas comerciales (canónicos) presentes en una consulta: envío, costo, ubicación, horario, etc. */
+export function commercialTopics(query: string): Set<string> {
+  return new Set(canonicalWords(query, new Set()).filter(x => x.topic).map(x => x.w));
+}
+
+export const CONFIRM_MESSAGE =
+  `Para no darte información incorrecta, necesitamos confirmar ese dato con nuestro equipo. Escríbenos por WhatsApp y te respondemos de inmediato: ${WHATSAPP_URL}`;
+
 /**
  * Busca el fragmento que responde la consulta. Devuelve null si no es suficientemente confiable:
  * pocas palabras de la consulta, cobertura baja, o dos respuestas distintas casi empatadas.
  * Fragmentos con el mismo texto (duplicados) cuentan como una sola respuesta.
  */
 export function matchKnowledgeText(query: string, rows: KbRow[]): KbRow | null {
-  const qStems = [...kbStems(query)];
-  if (qStems.length < 2) return null;
+  const qWords = kbWords(query);
+  if (qWords.length < 2) return null;
+  const qStems = [...new Set(qWords.map(x => stemOf(x.w)))];
 
   const scored = new Map<string, { row: KbRow; score: number; coverage: number }>();
   for (const row of rows) {
@@ -276,72 +426,87 @@ export function matchKnowledgeText(query: string, rows: KbRow[]): KbRow | null {
   return top.row;
 }
 
-export async function answerFromKnowledge(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
-  const t0 = Date.now();
+/**
+ * Lee una sola vez las filas activas de knowledge_base. Si falla, devuelve [] y el chat continúa con IA.
+ */
+export async function loadKnowledgeRows(admin: SupabaseClient): Promise<FaqRow[]> {
   try {
     const { data, error } = await (admin as any)
       .from('knowledge_base')
-      .select('id, content, question, aliases')
+      .select('id, content, question, aliases, sort_order, category')
       .eq('active', true)
-      .limit(500);
-    if (error) throw error;
-    const row = matchKnowledgeText(query, (data ?? []) as KbRow[]);
-    logLatency('texto_base', t0, row ? 'resultado=si' : 'resultado=no');
-    return row ? { content: row.content } : null;
-  } catch (err) {
-    logLatency('texto_base', t0, 'resultado=error');
-    console.error('[chat] Búsqueda textual no disponible:', err instanceof Error ? err.message : String(err));
-    return null;
-  }
-}
-
-/** Respuesta directa de preguntas frecuentes desde knowledge_base. Null si no hay coincidencia clara. */
-export async function answerFaq(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
-  try {
-    const { data, error } = await (admin as any)
-      .from('knowledge_base')
-      .select('id, content, question, aliases, sort_order')
-      .eq('active', true)
-      .not('question', 'is', null)
       .order('sort_order', { ascending: true })
       .limit(500);
     if (error) throw error;
-    const row = matchFaq(query, (data ?? []) as FaqRow[]);
-    return row ? { content: row.content } : null;
+    return (data ?? []) as FaqRow[];
   } catch (err) {
-    // Migración aún no aplicada o fallo puntual: no hay respuesta directa, el chat continúa.
-    console.error('[chat] FAQ no disponible:', err instanceof Error ? err.message : String(err));
+    console.error('[chat] Base de conocimiento no disponible:', err instanceof Error ? err.message : String(err));
+    return [];
+  }
+}
+
+async function runCatalog(admin: SupabaseClient, intent: CatalogIntent): Promise<ChatAnswer | null> {
+  const t0 = Date.now();
+  try {
+    const ans = await answerCatalogIntent(admin, intent);
+    logLatency('catalogo', t0, 'resultado=si');
+    return ans;
+  } catch (err) {
+    logLatency('catalogo', t0, 'resultado=error');
+    console.error('[chat] Catálogo no disponible:', err instanceof Error ? err.message : String(err));
     return null;
   }
 }
 
 /**
  * Motor completo de respuestas directas. Nunca lanza: devuelve null si debe continuar el flujo normal.
+ * Fuentes: 1) catálogo para modelos (precio, stock, medidas); 2) FAQ oficiales para temas comerciales;
+ * 3) información general de la base para el resto. Un tema comercial sin FAQ oficial deriva a WhatsApp.
+ * Un modelo concreto no lee la base; el resto lee la base una sola vez.
  */
 export async function tryDirectAnswer(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
   const small = smallTalkAnswer(query);
   if (small) return small;
 
   const t0 = Date.now();
-  const faq = await answerFaq(admin, query);
-  logLatency('faq', t0, faq ? 'resultado=si' : 'resultado=no');
-  if (faq) return faq;
-
   const intent = parseCatalogIntent(query);
   if (intent) {
-    const t1 = Date.now();
-    try {
-      const ans = await answerCatalogIntent(admin, intent);
-      logLatency('catalogo', t1, 'resultado=si');
-      return ans;
-    } catch (err) {
-      logLatency('catalogo', t1, 'resultado=error');
-      console.error('[chat] Catálogo no disponible:', err instanceof Error ? err.message : String(err));
-      return null;
-    }
+    // Modelo concreto: precio y stock salen del catálogo (fuente de verdad). No se consulta la base.
+    const cat = await runCatalog(admin, intent);
+    logLatency('base', t0, cat ? 'fila=catalogo' : 'fila=sin_respuesta');
+    return cat;
   }
 
-  return answerFromKnowledge(admin, query);
+  // Una sola lectura de la base para todo el flujo.
+  const rows = await loadKnowledgeRows(admin);
+
+  // 1) FAQ oficiales: son la fuente autorizada para temas comerciales.
+  const official = rows.filter(r => r.category === OFFICIAL_CATEGORY);
+  const faq = matchFaq(query, official);
+  if (faq) {
+    logLatency('base', t0, 'fila=faq_oficial');
+    return { content: faq.content };
+  }
+
+  // 1b) Consulta con varios temas: cada parte con su FAQ oficial; solo la parte pendiente va a WhatsApp.
+  const multi = matchFaqClauses(query, official);
+  if (multi) {
+    const lines = multi.pending.map(p => `Para "${p}", escríbenos por WhatsApp y te respondemos de inmediato: ${WHATSAPP_URL}`);
+    logLatency('base', t0, multi.pending.length ? 'fila=faq_combinada_parcial' : 'fila=faq_combinada');
+    return { content: [multi.content, ...lines].join('\n\n') };
+  }
+
+  // 2) Tema comercial sin FAQ oficial: no se responde con información complementaria ni con IA.
+  if (commercialTopics(query).size > 0) {
+    logLatency('base', t0, 'fila=confirmar');
+    return { content: CONFIRM_MESSAGE };
+  }
+
+  // 3) Información general (complementaria), sin temas comerciales.
+  const general = rows.filter(r => r.category !== OFFICIAL_CATEGORY);
+  const text = matchKnowledgeText(query, general as KbRow[]);
+  logLatency('base', t0, text ? 'fila=texto' : 'fila=sin_respuesta');
+  return text ? { content: text.content } : null;
 }
 
 // ----- Cuota de consultas IA (servidor, persistente y atómica) -----

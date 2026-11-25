@@ -65,7 +65,10 @@ export function parseKnowledgeFields(body: Record<string, unknown>): ParseResult
       aliases,
       active: body.active === undefined ? true : body.active === true,
       sort_order: sortRaw,
-      generate_embedding: body.generate_embedding === undefined ? true : body.generate_embedding !== false,
+      // Las FAQ oficiales no generan embedding por defecto (evita costo de OpenAI al guardar).
+      generate_embedding: body.generate_embedding === undefined
+        ? category !== 'oficial'
+        : body.generate_embedding !== false,
     },
   };
 }
