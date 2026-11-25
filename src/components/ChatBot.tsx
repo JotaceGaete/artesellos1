@@ -103,10 +103,10 @@ export default function ChatBot({ product }: ChatBotProps) {
   };
 
   const quickQuestions = [
-    '¿Cuáles son los medios de pago?',
-    '¿Cuánto demora el envío?',
-    '¿Puedo personalizar este timbre?',
-    '¿Cuál es la garantía?'
+    '¿Cuánto se demoran?',
+    '¿Dónde están ubicados?',
+    '¿Cuál es el horario de atención?',
+    '¿Cómo envío el diseño?'
   ];
 
   const askQuickQuestion = (question: string) => {
