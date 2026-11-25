@@ -11,7 +11,7 @@ import { readChatStream, ProductCard } from '@/lib/chatStream';
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string; products?: ProductCard[]; footer?: string };
 
-const SUGERENCIAS = ['¿Cuánto cuesta el envío?', 'Shiny 722', '¿Cuál es el horario de atención?'];
+const SUGERENCIAS = ['¿Cuánto se demoran?', '¿Dónde están ubicados?', '¿Cuál es el horario de atención?'];
 const NEAR_BOTTOM_PX = 60;
 
 export default function ConsultasChat() {
