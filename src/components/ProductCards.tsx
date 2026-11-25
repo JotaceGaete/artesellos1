@@ -3,6 +3,7 @@
 // Fichas de producto del chat: foto a la izquierda, información a la derecha y ampliación al pulsar.
 // Usado por el widget flotante y por /consultas. No muestra cantidades de stock, solo disponibilidad.
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { ProductCard } from '@/lib/chatStream';
 
 const DISPONIBILIDAD: Record<ProductCard['disponibilidad'], { label: string; className: string }> = {
@@ -67,6 +68,12 @@ export default function ProductCards({ products }: { products: ProductCard[] }) 
           );
         })}
       </ul>
+
+      <div className="mt-3 text-center">
+        <Link href="/productos" className="text-[16px] font-semibold text-indigo-700 underline underline-offset-2 hover:text-indigo-900">
+          Ver catálogo y realizar pedido
+        </Link>
+      </div>
 
       {zoom?.imagen_url && (
         <div
