@@ -5,7 +5,7 @@ import test from 'node:test';
 import ts from 'typescript';
 
 const root = new URL('../', import.meta.url);
-const migrationPath = new URL('supabase/migrations/20260831000100_insumos_foundation.sql', root);
+const migrationPath = new URL('insumos/supabase/migrations/20260831000100_insumos_foundation.sql', root);
 
 async function loadTypeScript(relativePath) {
   const source = await readFile(new URL(relativePath, root), 'utf8');

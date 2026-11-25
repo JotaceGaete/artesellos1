@@ -1,8 +1,9 @@
+import { createHmac } from 'node:crypto';
 // Prueba de humo de autenticación de administración.
 // Uso: BASE_URL=http://localhost:3100 ADMIN_SESSION_SECRET=... node --test tests/admin-auth.smoke.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3100';
 const SECRET = process.env.ADMIN_SESSION_SECRET;
@@ -77,3 +78,56 @@ test('el endpoint legado /api/admin/auth/login no es accesible sin sesión', asy
   const res = await send('/api/admin/auth/login', 'POST');
   assert.equal(res.status, 401);
 });
+
+// --- PUT y DELETE de /api/admin/productos/[id] ---
+const PRODUCT_ID = '00000000-0000-0000-0000-000000000000';
+test('PUT /api/admin/productos/[id] sin sesión responde 401', async () => {
+  const res = await send(`/api/admin/productos/${PRODUCT_ID}`, 'PUT');
+  assert.equal(res.status, 401);
+});
+test('DELETE /api/admin/productos/[id] sin sesión responde 401', async () => {
+  const res = await send(`/api/admin/productos/${PRODUCT_ID}`, 'DELETE');
+  assert.equal(res.status, 401);
+});
+test('PUT con sesión válida supera la autenticación (no 401)', async () => {
+  const res = await send(`/api/admin/productos/${PRODUCT_ID}`, 'PUT', { cookie: signedCookie(SECRET) });
+  assert.notEqual(res.status, 401);
+});
+test('DELETE con sesión válida supera la autenticación (no 401)', async () => {
+  const res = await send(`/api/admin/productos/${PRODUCT_ID}`, 'DELETE', { cookie: signedCookie(SECRET) });
+  assert.notEqual(res.status, 401);
+});
+test('DELETE con sesión falsificada responde 401', async () => {
+  const forged = `${COOKIE}=${Buffer.from(JSON.stringify({ exp: Date.now() + 60_000 })).toString('base64')}.AAAA`;
+  const res = await send(`/api/admin/productos/${PRODUCT_ID}`, 'DELETE', { cookie: forged });
+  assert.equal(res.status, 401);
+});
+
+// --- Webhook de Mercado Pago (requiere MP_WEBHOOK_SECRET en el servidor) ---
+const MP_SECRET = process.env.MP_WEBHOOK_SECRET;
+function mpHeaders(dataId, secret) {
+  const ts = String(Math.floor(Date.now() / 1000));
+  const requestId = 'test-request-id';
+  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+  const v1 = createHmac('sha256', secret).update(manifest).digest('hex');
+  return { 'x-signature': `ts=${ts},v1=${v1}`, 'x-request-id': requestId };
+}
+const postWebhook = (headers, body) => fetch(`${BASE}/api/checkout/mp/webhook`, {
+  method: 'POST', redirect: 'manual',
+  headers: { 'content-type': 'application/json', ...headers },
+  body: JSON.stringify(body),
+});
+if (MP_SECRET) {
+  test('webhook MP sin firma responde 401', async () => {
+    const res = await postWebhook({}, { type: 'payment', data: { id: '1' } });
+    assert.equal(res.status, 401);
+  });
+  test('webhook MP con firma de otro secreto responde 401', async () => {
+    const res = await postWebhook(mpHeaders('1', 'otro-secreto'), { type: 'payment', data: { id: '1' } });
+    assert.equal(res.status, 401);
+  });
+  test('webhook MP con firma válida supera la verificación (no 401)', async () => {
+    const res = await postWebhook(mpHeaders('1', MP_SECRET), { type: 'payment', data: { id: '1' } });
+    assert.notEqual(res.status, 401);
+  });
+}

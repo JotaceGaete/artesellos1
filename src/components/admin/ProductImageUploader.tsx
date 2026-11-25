@@ -55,9 +55,9 @@ async function toWebP(file: File, maxPx = 1200, quality = 0.85): Promise<Blob> {
 async function uploadBlob(blob: Blob): Promise<string> {
   const fd = new FormData();
   fd.append('file', blob, `product-${Date.now()}.webp`);
-  const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+  const res = await fetch('/api/admin/upload-image', { method: 'POST', body: fd });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Error al subir');
+  if (!res.ok) throw new Error(data.error || data.message || 'Error al subir');
   return data.url as string;
 }
 

@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServer } from '@/lib/supabaseServer';
+import { verifyMercadoPagoSignature } from '@/lib/mercadopagoSignature';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,24 @@ export async function POST(req: NextRequest) {
     }
 
     const { type, data } = body;
+
+    // Verificación de firma. Solo se aplica cuando MP_WEBHOOK_SECRET está configurada;
+    // mientras no lo esté, el flujo de pagos no cambia (se registra una advertencia).
+    const webhookSecret = process.env.MP_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const valid = await verifyMercadoPagoSignature({
+        signatureHeader: req.headers.get('x-signature'),
+        requestId: req.headers.get('x-request-id'),
+        dataId: String(data?.id ?? ''),
+        secret: webhookSecret,
+      });
+      if (!valid) {
+        console.warn('⚠️ Webhook de Mercado Pago con firma inválida rechazado');
+        return NextResponse.json({ message: 'Firma inválida' }, { status: 401 });
+      }
+    } else {
+      console.warn('⚠️ MP_WEBHOOK_SECRET no configurada: firma del webhook no verificada');
+    }
 
     // Solo procesamos notificaciones de pagos
     if (type === 'payment') {

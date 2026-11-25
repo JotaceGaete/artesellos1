@@ -117,6 +117,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await requireAdminSession(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const supabase = createSupabaseAdmin()
 

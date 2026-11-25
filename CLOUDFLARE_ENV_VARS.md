@@ -13,7 +13,7 @@ Para que tu aplicación funcione en Cloudflare Pages, debes configurar las sigui
 
 #### 2. NEXT_PUBLIC_SUPABASE_ANON_KEY
 - **Nombre**: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- **Valor**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlYW5ueHlld3N0dXB0aXZuempmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MjY4MzksImV4cCI6MjA3MjMwMjgzOX0.dhcH6n7VapQYSD90XO7haC5TVB0_ugFJJzyrF3AKHuU`
+- **Valor**: `<NEXT_PUBLIC_SUPABASE_ANON_KEY — copiar desde Supabase>`
 - **Entorno**: Production (y Preview si quieres)
 
 ### 🎯 Pasos para Configurar:

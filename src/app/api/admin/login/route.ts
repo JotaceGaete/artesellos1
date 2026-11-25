@@ -5,6 +5,9 @@ import { createClient } from '@supabase/supabase-js';
 import { createAdminToken, ADMIN_COOKIE, cookieOptions } from '@/lib/adminSession';
 import { publicEnv } from '@/lib/env/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '@/lib/env/server/supabase';
+import { ADMIN_SESSION_SECRET } from '@/lib/env/server/admin-session';
+import { constantTimeEqual, verifyPasswordHash } from '@/lib/adminPasswordHash';
+import { checkLoginGate, getClientIp, hashIp, recordLoginAttempt } from '@/lib/adminLoginRateLimit';
 
 function getAdminClient() {
   return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -12,9 +15,38 @@ function getAdminClient() {
   });
 }
 
+const encoder = new TextEncoder();
+
+/** Lee la contraseña: el hash (si existe) tiene prioridad sobre el texto plano legado. */
+async function verifyAdminPassword(
+  supabase: ReturnType<typeof getAdminClient>,
+  password: string,
+): Promise<{ ok: boolean; matched?: boolean; reason?: string }> {
+  const { data, error } = await supabase
+    .from('admin_settings')
+    .select('key, value')
+    .in('key', ['admin_password_hash', 'admin_password']);
+
+  if (error) return { ok: false, reason: `supabase: ${error.code} ${error.message}` };
+  const rows = (data ?? []) as Array<{ key: string; value: string }>;
+  const hashRow = rows.find(r => r.key === 'admin_password_hash');
+  const plainRow = rows.find(r => r.key === 'admin_password');
+
+  if (hashRow?.value) {
+    return { ok: true, matched: await verifyPasswordHash(password, hashRow.value.trim()) };
+  }
+  if (plainRow?.value) {
+    return {
+      ok: true,
+      matched: constantTimeEqual(encoder.encode(password.trim()), encoder.encode(plainRow.value.trim())),
+    };
+  }
+  return { ok: false, reason: 'sin admin_password ni admin_password_hash' };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { password } = body as { password?: unknown };
 
     if (!password || typeof password !== 'string') {
@@ -22,26 +54,28 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getAdminClient();
-    const { data, error } = await supabase
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'admin_password')
-      .single<{ value: string }>();
+    const ipHash = await hashIp(getClientIp(req), ADMIN_SESSION_SECRET);
 
-    if (error) {
-      console.error('[admin/login] Supabase error:', error.code, error.message);
+    const gate = await checkLoginGate(supabase, ipHash);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos fallidos. Intenta más tarde.' },
+        { status: 429, headers: { 'Retry-After': String(gate.retryAfterSec ?? 900) } },
+      );
+    }
+
+    const verification = await verifyAdminPassword(supabase, password);
+    if (!verification.ok) {
+      console.error('[admin/login] Error de configuración:', verification.reason);
       return NextResponse.json({ error: 'Error de configuración del servidor' }, { status: 500 });
     }
 
-    if (!data) {
-      console.error('[admin/login] Row admin_password not found in admin_settings');
-      return NextResponse.json({ error: 'Error de configuración del servidor' }, { status: 500 });
-    }
-
-    if (password.trim() !== data.value?.trim()) {
+    if (verification.matched !== true) {
+      await recordLoginAttempt(supabase, ipHash, false);
       return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
     }
 
+    await recordLoginAttempt(supabase, ipHash, true);
     const token = await createAdminToken();
     const res = NextResponse.json({ ok: true });
     res.cookies.set({ name: ADMIN_COOKIE, value: token, ...cookieOptions() });
