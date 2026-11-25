@@ -11,7 +11,24 @@ import { readChatStream, ProductCard } from '@/lib/chatStream';
 
 type Message = { id: string; role: 'user' | 'assistant'; content: string; products?: ProductCard[]; footer?: string };
 
-const SUGERENCIAS = ['¿Cuánto se demoran?', '¿Dónde están ubicados?', '¿Cuál es el horario de atención?'];
+const svgProps = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+const SUGERENCIAS = [
+  {
+    texto: '¿Cuánto se demoran?',
+    detalle: 'Tiempos de entrega',
+    icono: (<svg {...svgProps} aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
+  },
+  {
+    texto: '¿Dónde están ubicados?',
+    detalle: 'Coronel y retiro',
+    icono: (<svg {...svgProps} aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>),
+  },
+  {
+    texto: '¿Cuál es el horario de atención?',
+    detalle: 'Lunes a viernes',
+    icono: (<svg {...svgProps} aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>),
+  },
+];
 const NEAR_BOTTOM_PX = 60;
 
 export default function ConsultasChat() {
@@ -120,12 +137,19 @@ export default function ConsultasChat() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow">
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-[0_20px_50px_-20px_rgba(109,40,217,0.35)]">
+      <div className="flex flex-none items-center gap-3 bg-gradient-to-r from-violet-700 to-purple-500 px-4 py-3 text-white">
+        <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-white text-[18px] font-extrabold text-violet-700" aria-hidden="true">A</div>
+        <div className="min-w-0">
+          <h2 className="text-[16px] font-semibold leading-tight">Atención Artesellos</h2>
+          <p className="text-[13px] opacity-90"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-green-400" aria-hidden="true" />En línea · responde al instante</p>
+        </div>
+      </div>
       <div className="relative min-h-0 flex-1">
         <div
           ref={listRef}
           onScroll={onListScroll}
-          className="h-full overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-4"
+          className="h-full overflow-y-auto overscroll-contain bg-gradient-to-b from-violet-50/60 to-white p-3 sm:p-4 space-y-4"
         >
           {messages.length === 0 && (
             <p className="text-[16px] text-gray-700">
@@ -140,7 +164,7 @@ export default function ConsultasChat() {
             >
               <div
                 className={`${m.products?.length ? 'w-full' : 'max-w-[85%]'} min-w-0 break-words rounded-2xl px-4 py-2 text-[16px] ${
-                  m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
+                  m.role === 'user' ? 'bg-violet-700 text-white' : 'bg-violet-100 text-gray-800'
                 }`}
               >
                 {m.role === 'assistant' ? (
@@ -170,36 +194,40 @@ export default function ConsultasChat() {
         )}
       </div>
 
-      {/* Sugerencias siempre visibles: una fila compacta que se desliza en móviles */}
-      <div className="flex-none overflow-x-auto border-t border-gray-100 bg-white">
-        <div className="flex gap-2 whitespace-nowrap p-2">
+      {/* Sugerencias siempre visibles: tarjetas en una fila que se desliza en móviles */}
+      <div className="flex-none overflow-x-auto border-t border-violet-100 bg-white">
+        <div className="flex gap-2.5 p-2.5">
           {SUGERENCIAS.map(s => (
             <button
-              key={s}
+              key={s.texto}
               type="button"
-              onClick={() => send(s)}
+              onClick={() => send(s.texto)}
               disabled={isLoading}
-              className="shrink-0 rounded-full border border-indigo-200 px-3 py-1.5 text-[16px] text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+              className="flex min-w-[13rem] flex-1 items-center gap-2.5 rounded-xl border border-violet-100 bg-white px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md disabled:opacity-50"
             >
-              {s}
+              <span className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-violet-100 text-violet-700 [&>svg]:h-4 [&>svg]:w-4">{s.icono}</span>
+              <span className="min-w-0">
+                <span className="block text-[15px] font-semibold leading-tight text-gray-800">{s.texto}</span>
+                <span className="block text-[13px] text-gray-500">{s.detalle}</span>
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="flex-none flex gap-2 border-t border-gray-100 p-2 sm:p-3">
+      <form onSubmit={onSubmit} className="flex-none flex gap-2 border-t border-violet-100 p-2 sm:p-3">
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Escribe tu consulta…"
           maxLength={1000}
           aria-label="Consulta"
-          className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-[16px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="min-w-0 flex-1 rounded-full border border-gray-300 px-4 py-2 text-[16px] focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="flex-none rounded-md bg-indigo-600 px-4 py-2 text-[16px] text-white disabled:opacity-50"
+          className="flex-none rounded-full bg-violet-700 px-5 py-2 text-[16px] font-semibold text-white hover:bg-violet-800 disabled:opacity-50"
         >
           Enviar
         </button>
