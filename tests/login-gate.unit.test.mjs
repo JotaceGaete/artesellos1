@@ -69,3 +69,31 @@ test('hashIp: produce HMAC hex estable y no contiene la IP', async () => {
   assert.equal(h1.length, 64);
   assert.ok(!h1.includes('1.2.3.4'));
 });
+
+function req(headers) {
+  return new Request('https://artesellos.cl/api/admin/login', { method: 'POST', headers });
+}
+
+test('getClientIp: detrás de Cloudflare usa cf-connecting-ip (IPv4 e IPv6 de Cloudflare)', () => {
+  assert.equal(gate.getClientIp(req({ 'x-forwarded-for': '172.68.10.5', 'cf-connecting-ip': '200.1.2.3' })), '200.1.2.3');
+  assert.equal(gate.getClientIp(req({ 'x-forwarded-for': '2a06:98c0:3600::103', 'cf-connecting-ip': '2800:150::1' })), '2800:150::1');
+});
+
+test('getClientIp: ignora cf-connecting-ip si la conexión no viene de Cloudflare', () => {
+  assert.equal(gate.getClientIp(req({ 'x-forwarded-for': '200.1.2.3', 'cf-connecting-ip': '9.9.9.9' })), '200.1.2.3');
+});
+
+test('getClientIp: sin cf-connecting-ip usa x-forwarded-for; cf-connecting-ip inválida se ignora', () => {
+  assert.equal(gate.getClientIp(req({ 'x-forwarded-for': '200.1.2.3, 10.0.0.1' })), '200.1.2.3');
+  assert.equal(gate.getClientIp(req({ 'x-forwarded-for': '172.68.10.5', 'cf-connecting-ip': 'no-es-ip' })), '172.68.10.5');
+});
+
+test('isCloudflareIp: límites de rango', () => {
+  assert.equal(gate.isCloudflareIp('104.16.0.0'), true);
+  assert.equal(gate.isCloudflareIp('104.23.255.255'), true);
+  assert.equal(gate.isCloudflareIp('104.24.0.0'), true);
+  assert.equal(gate.isCloudflareIp('104.28.0.0'), false);
+  assert.equal(gate.isCloudflareIp('2606:4700:3036::6815:5df4'), true);
+  assert.equal(gate.isCloudflareIp('2607:4700::1'), false);
+  assert.equal(gate.isCloudflareIp('::1'), false);
+});
