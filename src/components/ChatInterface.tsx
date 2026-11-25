@@ -3,11 +3,15 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useRef, useEffect, useState } from 'react';
+import ProductCards from '@/components/ProductCards';
+import { readChatStream, ProductCard } from '@/lib/chatStream';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  products?: ProductCard[];
+  footer?: string;
 }
 
 export default function ChatInterface() {
@@ -124,74 +128,29 @@ export default function ChatInterface() {
         throw new Error(errorMessage);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No se pudo obtener el reader del stream');
-      }
-
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: ''
       };
-
       setMessages(prev => [...prev, assistantMessage]);
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let hasContent = false;
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-
-          for (let i = 0; i < lines.length - 1; i++) {
-            const line = lines[i].trim();
-            
-            if (line.startsWith('data: ')) {
-              const dataStr = line.slice(6);
-              if (dataStr === '[DONE]') {
-                console.log('✅ Stream completado');
-                continue;
+      let receivedAny = false;
+      await readChatStream(response, (ev) => {
+        if (ev.content || ev.products || ev.footer) receivedAny = true;
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessage.id
+            ? {
+                ...msg,
+                content: ev.content ? msg.content + ev.content : msg.content,
+                products: ev.products ?? msg.products,
+                footer: ev.footer ? (msg.footer ?? '') + ev.footer : msg.footer,
               }
-
-              try {
-                const data = JSON.parse(dataStr);
-                
-                if (data && typeof data === 'object' && data.content) {
-                  hasContent = true;
-                  setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessage.id
-                      ? { ...msg, content: msg.content + data.content }
-                      : msg
-                  ));
-                } else if (data && typeof data === 'string') {
-                  hasContent = true;
-                  setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessage.id
-                      ? { ...msg, content: msg.content + data }
-                      : msg
-                  ));
-                }
-              } catch (parseError) {
-                console.warn('⚠️ No se pudo parsear línea de streaming:', line, parseError);
-              }
-            }
-          }
-
-          buffer = lines[lines.length - 1];
-        }
-        
-        if (!hasContent) {
-          console.error('❌ No se recibió contenido del servidor');
-          throw new Error('El servidor no devolvió contenido');
-        }
-      } finally {
-        reader.releaseLock();
+            : msg
+        ));
+      });
+      if (!receivedAny) {
+        throw new Error('El servidor no devolvió contenido');
       }
 
     } catch (err) {
@@ -275,7 +234,7 @@ export default function ChatInterface() {
 
       {/* Widget del chat */}
       {isOpen && (
-        <div className="fixed bottom-20 sm:bottom-28 left-2 right-2 sm:left-auto sm:right-6 sm:w-96 z-50 h-[calc(100vh-6rem)] sm:h-[500px] max-h-[600px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
+        <div className="fixed bottom-20 sm:bottom-28 left-2 right-2 sm:left-auto sm:right-6 sm:w-[460px] z-50 h-[calc(100vh-6rem)] sm:h-[500px] max-h-[600px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
           
           {/* Header con botón de WhatsApp */}
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
@@ -309,11 +268,12 @@ export default function ChatInterface() {
 
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] sm:max-w-[85%] p-3 sm:p-4 rounded-2xl text-xs sm:text-sm shadow-sm break-words ${
+                <div className={`${m.products?.length ? 'w-full' : 'max-w-[85%]'} p-3 sm:p-4 rounded-2xl text-[16px] shadow-sm break-words ${
                     m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-800'
                 }`}>
                   {m.role === 'assistant' ? (
-                    <ReactMarkdown
+                    <>
+                    {m.content && <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
                         // eslint-disable-next-line @next/next/no-img-element
@@ -323,7 +283,14 @@ export default function ChatInterface() {
                       }}
                     >
                       {m.content}
-                    </ReactMarkdown>
+                    </ReactMarkdown>}
+                    {m.products && m.products.length > 0 && <ProductCards products={m.products} />}
+                    {m.footer && (
+                      <div className="mt-3 text-[16px] text-gray-600">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.footer}</ReactMarkdown>
+                      </div>
+                    )}
+                    </>
                   ) : (
                     <div className="whitespace-pre-wrap break-words">
                       {m.content}
@@ -348,7 +315,7 @@ export default function ChatInterface() {
           <form onSubmit={handleSubmit} className="p-2 sm:p-4 bg-white border-t flex-shrink-0">
             <div className="flex gap-2">
               <input
-                className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 outline-none text-black text-sm sm:text-base"
+                className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 outline-none text-black text-[16px]"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Escribe aquí..."

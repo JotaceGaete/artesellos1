@@ -5,13 +5,15 @@ import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import {
   tryDirectAnswer,
-  formatProductResults,
+  buildProductAnswer,
+  normalizeStockRow,
   hashChatClient,
   aiQuotaKey,
   consumeAiQuota,
   AI_QUOTA_MESSAGE,
 } from '@/lib/chatAnswerEngine';
 import { publicEnv } from '@/lib/env/public';
+import { answerToSse, ChatAnswer } from '@/lib/chatStream';
 
 // Cliente Supabase (para búsqueda de productos)
 const supabase = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -28,13 +30,13 @@ try {
   console.error('❌ Error al inicializar OpenAI:', error);
 }
 
-// Respuesta en el mismo formato de stream que el resto del chat.
-function streamResponse(content: string): Response {
+// Respuesta en el mismo formato de stream que el resto del chat (texto o fichas de producto).
+function streamResponse(answer: string | ChatAnswer): Response {
   const encoder = new TextEncoder();
+  const body = typeof answer === 'string' ? { content: answer } : answer;
   const stream = new ReadableStream({
     start(controller) {
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
-      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.enqueue(encoder.encode(answerToSse(body)));
       controller.close();
     },
   });
@@ -387,6 +389,7 @@ INSTRUCCIONES:
     let ragContext = '';
     let hasRAGContext = false;
     let responseContent = '';
+    let responseCards: ChatAnswer | null = null; // fichas de producto (sin cantidades de stock)
     let stockInfo = ''; // Para agregar al contexto
 
     // Si detectamos mención de producto, buscar directamente
@@ -457,16 +460,15 @@ INSTRUCCIONES:
         // Si es una solicitud de compra, agregar validación de stock al contexto
         if (isPurchaseRequest && data.length > 0) {
           const product = data[0]; // Tomar el primer resultado
-          stockInfo = `\n\n⚠️ INFORMACIÓN DE STOCK PARA VALIDAR:\n- Producto: ${product.marca} ${product.modelo}\n- Stock disponible: ${product.stock} unidades\n- Cantidad solicitada: ${requestedQuantity} unidades\n- Precio unitario: $${product.precio?.toLocaleString('es-CL') || '0'}\n`;
+          stockInfo = `\n\n⚠️ INFORMACIÓN DE STOCK PARA VALIDAR:\n- Producto: ${product.marca} ${product.modelo}\n- Cantidad solicitada: ${requestedQuantity} unidades\n- Precio unitario: $${product.precio?.toLocaleString('es-CL') || '0'}\n`;
           
           // Validar stock y generar respuesta directa
           if (requestedQuantity > product.stock) {
-            responseContent = `Para compra online tenemos **${product.stock} unidades** disponibles del ${product.marca} ${product.modelo}.\n\n`;
+            responseContent = `Por el momento no tenemos ${requestedQuantity} unidades disponibles para compra online del ${product.marca} ${product.modelo}.\n\n`;
             responseContent += `**Precio unitario:** $${product.precio?.toLocaleString('es-CL')}\n\n`;
             if (product.stock > 0) {
-              const totalDisponible = product.precio * product.stock;
               responseContent += `Opciones:\n`;
-              responseContent += `1️⃣ Comprar las **${product.stock} unidades online** por $${totalDisponible.toLocaleString('es-CL')}\n`;
+              responseContent += `1️⃣ Consultar la cantidad disponible para compra online\n`;
               responseContent += `2️⃣ **Contactar a nuestra tienda física** que cuenta con mayor stock para tu pedido de ${requestedQuantity} unidades\n`;
               responseContent += `3️⃣ Ver modelos similares disponibles\n\n`;
               responseContent += `📍 **Tienda:** Centro de Santiago, Providencia\n`;
@@ -493,7 +495,8 @@ INSTRUCCIONES:
           }
         } else {
           // No es solicitud de compra, solo mostrar productos
-          responseContent = formatProductResults(data);
+          responseCards = buildProductAnswer((data as any[]).map(normalizeStockRow));
+          responseContent = responseCards.content;
         }
       } else {
         // Si no encontramos productos, usar OpenAI con RAG
@@ -671,9 +674,11 @@ PREGUNTA DEL USUARIO: ${lastMessage}`;
     const stream = new ReadableStream({
       start(controller) {
         try {
-          const data = JSON.stringify({ content: responseContent });
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.enqueue(encoder.encode(answerToSse({
+            content: responseContent,
+            products: responseCards?.products,
+            footer: responseCards?.footer,
+          })));
           controller.close();
         } catch (error) {
           console.error('Error en stream:', error);

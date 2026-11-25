@@ -4,6 +4,7 @@
 // Ante cualquier ambigüedad devuelve null y el chat continúa con su flujo normal.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ProductCard, ChatAnswer, Disponibilidad } from './chatStream';
 
 export type FaqRow = {
   id: number;
@@ -20,8 +21,8 @@ export type StockRow = {
   categoria: string;
   ancho_mm: number;
   alto_mm: number;
-  precio: number;
-  stock: number;
+  precio: number | null;
+  stock: number | null;
   imagen_url: string | null;
 };
 
@@ -119,41 +120,59 @@ export function parseCatalogIntent(query: string): CatalogIntent | null {
   return { brand: m[1], model: m[2] };
 }
 
-/** Formato de productos del chat (fotografía, medidas, categoría, precio y disponibilidad). */
-export function formatProductResults(data: StockRow[]): string {
-  let respuesta = '\n\n📦 **Encontré estos productos:**\n\n';
+const PRODUCT_INTRO = '📦 **Encontré estos productos:**';
+const PRODUCT_FOOTER =
+  '¿Necesitas más información sobre alguno de estos modelos?\n\n' +
+  '_💡 Nota: Nuestra tienda física en el centro de Santiago cuenta con mayor stock. Para cantidades mayores o productos específicos, contáctanos directamente._';
 
-  for (const item of data) {
-    respuesta += `### **${item.marca} ${item.modelo}** - ${item.color}\n\n`;
-    respuesta += `- **Medidas:** ${item.ancho_mm}x${item.alto_mm}mm\n`;
-    respuesta += `- **Categoría:** ${item.categoria}\n`;
+/** Normaliza una fila de stock_timbres (texto con espacios, precios como texto). Stock nulo se conserva como nulo. */
+export function normalizeStockRow(raw: any): StockRow {
+  const num = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    marca: String(raw.marca ?? '').trim(),
+    modelo: String(raw.modelo ?? '').trim(),
+    color: String(raw.color ?? '').trim(),
+    categoria: String(raw.categoria ?? '').trim(),
+    ancho_mm: num(raw.ancho_mm) ?? 0,
+    alto_mm: num(raw.alto_mm) ?? 0,
+    precio: num(raw.precio),
+    stock: num(raw.stock),
+    imagen_url: raw.imagen_url ? String(raw.imagen_url) : null,
+  };
+}
 
-    if (item.precio && item.precio > 0) {
-      respuesta += `- **Precio:** $${item.precio.toLocaleString('es-CL')}\n`;
-    }
+/** Estado público de disponibilidad. La cantidad real nunca sale del servidor. */
+export function availabilityOf(stock: number | null): Disponibilidad {
+  if (stock === null) return 'consultar';
+  return stock > 0 ? 'disponible' : 'agotado';
+}
 
-    if (item.stock > 0) {
-      respuesta += `- **Disponibilidad online:** ✅ **${item.stock} unidades**\n`;
-    } else {
-      respuesta += `- **Disponibilidad online:** ⚠️ Consultar disponibilidad\n`;
-    }
+export function toProductCards(rows: StockRow[]): ProductCard[] {
+  return rows.map(r => ({
+    marca: r.marca,
+    modelo: r.modelo,
+    color: r.color,
+    categoria: r.categoria,
+    medidas: r.ancho_mm && r.alto_mm ? `${r.ancho_mm}x${r.alto_mm}mm` : '',
+    precio: r.precio && r.precio > 0 ? r.precio : null,
+    imagen_url: r.imagen_url,
+    disponibilidad: availabilityOf(r.stock),
+  }));
+}
 
-    if (item.imagen_url) {
-      respuesta += `\n![${item.marca} ${item.modelo} ${item.color}](${item.imagen_url})\n`;
-    }
-    respuesta += '\n---\n\n';
-  }
-
-  respuesta += '\n💬 **¿Necesitas más información sobre alguno de estos modelos?**\n\n';
-  respuesta += '_💡 Nota: Nuestra tienda física en el centro de Santiago cuenta con mayor stock. Para cantidades mayores o productos específicos, contáctanos directamente._';
-  return respuesta;
+export function buildProductAnswer(rows: StockRow[]): ChatAnswer {
+  return { content: PRODUCT_INTRO, products: toProductCards(rows), footer: PRODUCT_FOOTER };
 }
 
 /** Busca el modelo en stock_timbres. Sin llamadas a OpenAI. */
 export async function answerCatalogIntent(
   admin: SupabaseClient,
   intent: CatalogIntent,
-): Promise<string> {
+): Promise<ChatAnswer> {
   const { data, error } = await (admin as any)
     .from('stock_timbres')
     .select('marca, modelo, color, categoria, ancho_mm, alto_mm, precio, stock, imagen_url')
@@ -162,30 +181,20 @@ export async function answerCatalogIntent(
     .limit(30);
 
   if (error) throw error;
-  // stock_timbres guarda texto con espacios sobrantes ("Shiny ") y números como texto: se normaliza aquí.
-  const normalized: StockRow[] = ((data ?? []) as any[]).map(r => ({
-    marca: String(r.marca ?? '').trim(),
-    modelo: String(r.modelo ?? '').trim(),
-    color: String(r.color ?? '').trim(),
-    categoria: String(r.categoria ?? '').trim(),
-    ancho_mm: Number(r.ancho_mm),
-    alto_mm: Number(r.alto_mm),
-    precio: Number(r.precio),
-    stock: Number(r.stock),
-    imagen_url: r.imagen_url ?? null,
-  }));
-  const rows = normalized.filter(r =>
+  const rows = ((data ?? []) as any[]).map(normalizeStockRow).filter(r =>
     new RegExp(`(^|[^0-9])${intent.model}($|[^0-9])`).test(r.modelo),
   );
 
   if (rows.length === 0) {
-    return `No encontré el modelo **${intent.brand} ${intent.model}** en nuestro catálogo online. Escríbenos por WhatsApp y revisamos si podemos conseguirlo para ti.`;
+    return {
+      content: `No encontré el modelo **${intent.brand} ${intent.model}** en nuestro catálogo online. Escríbenos por WhatsApp y revisamos si podemos conseguirlo para ti.`,
+    };
   }
-  return formatProductResults(rows);
+  return buildProductAnswer(rows);
 }
 
 /** Respuesta directa de preguntas frecuentes desde knowledge_base. Null si no hay coincidencia clara. */
-export async function answerFaq(admin: SupabaseClient, query: string): Promise<string | null> {
+export async function answerFaq(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
   try {
     const { data, error } = await (admin as any)
       .from('knowledge_base')
@@ -196,7 +205,7 @@ export async function answerFaq(admin: SupabaseClient, query: string): Promise<s
       .limit(500);
     if (error) throw error;
     const row = matchFaq(query, (data ?? []) as FaqRow[]);
-    return row ? row.content : null;
+    return row ? { content: row.content } : null;
   } catch (err) {
     // Migración aún no aplicada o fallo puntual: no hay respuesta directa, el chat continúa.
     console.error('[chat] FAQ no disponible:', err instanceof Error ? err.message : String(err));
@@ -207,7 +216,7 @@ export async function answerFaq(admin: SupabaseClient, query: string): Promise<s
 /**
  * Motor completo de respuestas directas. Nunca lanza: devuelve null si debe continuar el flujo normal.
  */
-export async function tryDirectAnswer(admin: SupabaseClient, query: string): Promise<string | null> {
+export async function tryDirectAnswer(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
   const faq = await answerFaq(admin, query);
   if (faq) return faq;
 

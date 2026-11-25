@@ -5,8 +5,10 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import ProductCards from '@/components/ProductCards';
+import { readChatStream, ProductCard } from '@/lib/chatStream';
 
-type Message = { id: string; role: 'user' | 'assistant'; content: string };
+type Message = { id: string; role: 'user' | 'assistant'; content: string; products?: ProductCard[]; footer?: string };
 
 const SUGERENCIAS = ['¿Cuánto cuesta el envío?', 'Shiny 722', '¿Cuál es el horario de atención?'];
 
@@ -48,34 +50,17 @@ export default function ConsultasChat() {
         }
         throw new Error(message);
       }
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No se pudo leer la respuesta.');
-
       setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        for (let i = 0; i < lines.length - 1; i++) {
-          const line = lines[i].trim();
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6);
-          if (payload === '[DONE]') continue;
-          try {
-            const data = JSON.parse(payload);
-            const chunk = typeof data === 'string' ? data : data?.content;
-            if (chunk) {
-              setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content: m.content + chunk } : m)));
+      await readChatStream(response, (ev) => {
+        setMessages(prev => prev.map(m => (m.id === assistantId
+          ? {
+              ...m,
+              content: ev.content ? m.content + ev.content : m.content,
+              products: ev.products ?? m.products,
+              footer: ev.footer ? (m.footer ?? '') + ev.footer : m.footer,
             }
-          } catch {
-            // línea incompleta o no JSON: se ignora
-          }
-        }
-        buffer = lines[lines.length - 1];
-      }
+          : m)));
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -111,13 +96,16 @@ export default function ConsultasChat() {
         {messages.map(m => (
           <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
+              className={`${m.products?.length ? 'w-full' : 'max-w-[85%]'} rounded-2xl px-4 py-2 text-[16px] ${
                 m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
               }`}
             >
               {m.role === 'assistant' ? (
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || '…'}</ReactMarkdown>
+                <div className="prose max-w-none text-[16px]">
+                  {m.content && <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>}
+                  {m.products && m.products.length > 0 && <ProductCards products={m.products} />}
+                  {m.footer && <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.footer}</ReactMarkdown>}
+                  {!m.content && !m.products && !m.footer && '…'}
                 </div>
               ) : (
                 m.content
@@ -135,7 +123,7 @@ export default function ConsultasChat() {
           placeholder="Escribe tu consulta…"
           maxLength={1000}
           aria-label="Consulta"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 px-3 py-2 text-[16px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <button
           type="submit"

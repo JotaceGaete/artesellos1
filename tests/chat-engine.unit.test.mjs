@@ -83,26 +83,43 @@ test('parseCatalogIntent: marca desconocida o sin número de modelo', () => {
   assert.equal(engine.parseCatalogIntent('pilot 722'), null);
 });
 
-test('formatProductResults: conserva encabezado, medidas, precio, disponibilidad e imagen', () => {
-  const out = engine.formatProductResults([{
-    marca: 'Shiny', modelo: '722', color: 'Negro', categoria: 'Timbre', ancho_mm: 14, alto_mm: 38,
+test('buildProductAnswer: fichas con medidas, precio, colores e imagen', () => {
+  const ans = engine.buildProductAnswer([{
+    marca: 'Shiny', modelo: '722', color: 'Negro', categoria: 'Bolsillo', ancho_mm: 14, alto_mm: 38,
     precio: 16000, stock: 3, imagen_url: 'https://ejemplo.cl/a.jpg',
   }]);
-  assert.match(out, /Encontré estos productos/);
-  assert.match(out, /### \*\*Shiny 722\*\* - Negro/);
-  assert.match(out, /Medidas:\*\* 14x38mm/);
-  assert.match(out, /Precio:\*\* \$16.?000/);
-  assert.match(out, /3 unidades/);
-  assert.match(out, /!\[Shiny 722 Negro\]\(https:\/\/ejemplo\.cl\/a\.jpg\)/);
+  assert.equal(ans.products.length, 1);
+  const c = ans.products[0];
+  assert.equal(c.medidas, '14x38mm');
+  assert.equal(c.precio, 16000);
+  assert.equal(c.color, 'Negro');
+  assert.equal(c.imagen_url, 'https://ejemplo.cl/a.jpg');
+  assert.equal(c.disponibilidad, 'disponible');
 });
 
-test('formatProductResults: sin precio ni stock muestra consulta de disponibilidad', () => {
-  const out = engine.formatProductResults([{
-    marca: 'Colop', modelo: '10', color: 'Rojo', categoria: 'Timbre', ancho_mm: 10, alto_mm: 20,
-    precio: 0, stock: 0, imagen_url: null,
+test('disponibilidad: con stock, sin stock o sin dato', () => {
+  assert.equal(engine.availabilityOf(5), 'disponible');
+  assert.equal(engine.availabilityOf(0), 'agotado');
+  assert.equal(engine.availabilityOf(null), 'consultar');
+});
+
+test('fichas: nunca incluyen la cantidad de stock', () => {
+  const ans = engine.buildProductAnswer([{
+    marca: 'Shiny', modelo: '722', color: 'Negro', categoria: 'Bolsillo', ancho_mm: 14, alto_mm: 38,
+    precio: 16000, stock: 7, imagen_url: null,
   }]);
-  assert.doesNotMatch(out, /Precio:/);
-  assert.match(out, /Consultar disponibilidad/);
+  const json = JSON.stringify(ans);
+  assert.doesNotMatch(json, /"stock"/);
+  assert.doesNotMatch(json, /\b7\b/);
+});
+
+test('fichas: precio ausente se marca como nulo', () => {
+  const ans = engine.buildProductAnswer([{
+    marca: 'Colop', modelo: '10', color: 'Rojo', categoria: 'Timbre', ancho_mm: 10, alto_mm: 20,
+    precio: 0, stock: null, imagen_url: null,
+  }]);
+  assert.equal(ans.products[0].precio, null);
+  assert.equal(ans.products[0].disponibilidad, 'consultar');
 });
 
 test('knowledge fields: el contenido es obligatorio', () => {
@@ -154,7 +171,7 @@ test('toRow: alternativas vacías se guardan como null', () => {
   assert.equal(fields.toRow(r.value).aliases, null);
 });
 
-test('answerCatalogIntent: encuentra marca con espacio sobrante y normaliza precio', async () => {
+test('answerCatalogIntent: encuentra marca con espacio sobrante, normaliza precio y oculta stock', async () => {
   const { answerCatalogIntent } = engine;
   const calls = [];
   const chain = {
@@ -166,9 +183,21 @@ test('answerCatalogIntent: encuentra marca con espacio sobrante y normaliza prec
     }] }); },
   };
   const admin = { from() { return chain; } };
-  const out = await answerCatalogIntent(admin, { brand: 'shiny', model: '722' });
+  const ans = await answerCatalogIntent(admin, { brand: 'shiny', model: '722' });
   assert.deepEqual(calls, [['marca', '%shiny%'], ['modelo', '%722%']]);
-  assert.match(out, /### \*\*Shiny 722\*\* - Dorado/);
-  assert.match(out, /Precio:\*\* \$16.?000/);
-  assert.match(out, /!\[Shiny 722 Dorado\]\(https:\/\/e\.cl\/x\.jpg\)/);
+  assert.equal(ans.products[0].marca, 'Shiny');
+  assert.equal(ans.products[0].precio, 16000);
+  assert.equal(ans.products[0].disponibilidad, 'disponible');
+  assert.doesNotMatch(JSON.stringify(ans), /"stock"/);
+});
+
+test('answerToSse / readChatStream: eventos de contenido, fichas y pie', async () => {
+  const { answerToSse, readChatStream } = await load('../src/lib/chatStream.ts', 'chatStream.mjs');
+  const sse = answerToSse({ content: 'Hola', products: [{ marca: 'A', modelo: '1', color: '', categoria: '', medidas: '', precio: null, imagen_url: null, disponibilidad: 'agotado' }], footer: 'Pie' });
+  const events = [];
+  await readChatStream(new Response(sse), ev => events.push(ev));
+  assert.equal(events[0].content, 'Hola');
+  assert.equal(events[1].products[0].disponibilidad, 'agotado');
+  assert.equal(events[2].footer, 'Pie');
+  assert.equal(events.length, 3);
 });
