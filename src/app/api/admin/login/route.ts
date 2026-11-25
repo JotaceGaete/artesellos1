@@ -7,7 +7,7 @@ import { publicEnv } from '@/lib/env/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '@/lib/env/server/supabase';
 import { ADMIN_SESSION_SECRET } from '@/lib/env/server/admin-session';
 import { constantTimeEqual, verifyPasswordHash } from '@/lib/adminPasswordHash';
-import { checkLoginGate, getClientIp, hashIp, recordLoginAttempt } from '@/lib/adminLoginRateLimit';
+import { beginLoginAttempt, finishLoginAttempt, getClientIp, hashIp } from '@/lib/adminLoginRateLimit';
 
 function getAdminClient() {
   return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -56,26 +56,33 @@ export async function POST(req: NextRequest) {
     const supabase = getAdminClient();
     const ipHash = await hashIp(getClientIp(req), ADMIN_SESSION_SECRET);
 
-    const gate = await checkLoginGate(supabase, ipHash);
-    if (!gate.allowed) {
+    const begin = await beginLoginAttempt(supabase, ipHash);
+    if (begin.allowed === false && 'unavailable' in begin) {
+      return NextResponse.json(
+        { error: 'Servicio de acceso no disponible. Intenta más tarde.' },
+        { status: 503, headers: { 'Retry-After': '60' } },
+      );
+    }
+    if (begin.allowed === false) {
       return NextResponse.json(
         { error: 'Demasiados intentos fallidos. Intenta más tarde.' },
-        { status: 429, headers: { 'Retry-After': String(gate.retryAfterSec ?? 900) } },
+        { status: 429, headers: { 'Retry-After': String((begin as { retryAfterSec: number }).retryAfterSec) } },
       );
     }
 
     const verification = await verifyAdminPassword(supabase, password);
     if (!verification.ok) {
+      await finishLoginAttempt(supabase, begin.attemptId, false);
       console.error('[admin/login] Error de configuración:', verification.reason);
       return NextResponse.json({ error: 'Error de configuración del servidor' }, { status: 500 });
     }
 
     if (verification.matched !== true) {
-      await recordLoginAttempt(supabase, ipHash, false);
+      await finishLoginAttempt(supabase, begin.attemptId, false);
       return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
     }
 
-    await recordLoginAttempt(supabase, ipHash, true);
+    await finishLoginAttempt(supabase, begin.attemptId, true);
     const token = await createAdminToken();
     const res = NextResponse.json({ ok: true });
     res.cookies.set({ name: ADMIN_COOKIE, value: token, ...cookieOptions() });

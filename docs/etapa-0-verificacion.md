@@ -42,4 +42,4 @@ Ver `docs/migracion-hash-admin.md`. El código ya acepta el hash; la migración 
 ## 8. Secretos en lo que se publicará
 - Se eliminaron del árbol: la contraseña de ejemplo en `admin-settings-setup.sql` y una clave anon en `CLOUDFLARE_ENV_VARS.md` (reemplazadas por marcadores).
 - Verificado: `.env.example` solo contiene marcadores.
-- **Pendiente crítico:** el historial público de GitHub conserva `artesellos2024` y la clave anon. La clave anon es pública por diseño; la contraseña debe considerarse expuesta (ver `docs/migracion-hash-admin.md`).
+- **Pendiente crítico:** el historial público de GitHub conserva la contraseña administrativa anterior y una clave anon. La clave anon es pública por diseño; la contraseña debe considerarse expuesta (ver `docs/migracion-hash-admin.md`).

@@ -1,58 +1,58 @@
-# Migración de la contraseña administrativa a hash
+# Procedimiento definitivo: contraseña administrativa con hash
 
-Objetivo: dejar de guardar la contraseña en texto plano en `admin_settings`, sin perder el acceso.
+Objetivo: reemplazar la contraseña en texto plano por un hash PBKDF2-SHA256 sin perder el acceso al panel.
 
-## Estado actual del código
+## Estado del código (ya desplegado en la rama de seguridad)
+- `POST /api/admin/login` prefiere `admin_password_hash`. Si existe, compara solo contra ese hash.
+- Si no existe, usa `admin_password` (legado) con comparación en tiempo constante.
+- No se requiere ningún cambio de código para migrar: basta con una fila nueva.
 
-- `POST /api/admin/login` lee `admin_password_hash` y `admin_password` de `admin_settings`.
-- Si existe `admin_password_hash`, se usa **solo** ese hash (PBKDF2-SHA256, 210.000 iteraciones, sal aleatoria).
-- Si no existe, se usa el texto plano `admin_password` con comparación en tiempo constante (comportamiento legado).
-- No hace falta ningún cambio de código ni de esquema para migrar: solo se agrega una fila.
+## Advertencia
+La contraseña administrativa anterior está en el historial público del repositorio. Considérala comprometida y no la reutilices en ningún lugar.
 
-## Advertencia previa
-
-La contraseña `artesellos2024` aparece en el historial **público** del repositorio (commits antiguos).
-Si alguna vez fue la contraseña real, debe considerarse comprometida. Usa una contraseña nueva de al menos 12 caracteres.
-
-## Pasos
-
-1. **Generar el hash en tu computador** (no se envía a la red, la contraseña no queda en el historial del shell si la escribes en el prompt):
-   ```bash
-   node scripts/hash-admin-password.mjs
-   ```
-   Escribe la nueva contraseña cuando lo pida. Copia la línea que imprime (`pbkdf2_sha256$...`).
-
-2. **Insertar el hash** en el SQL editor de Supabase. Esta es la única escritura en la base de datos y se hace manualmente:
-   ```sql
-   INSERT INTO admin_settings (key, value)
-   VALUES ('admin_password_hash', '<HASH>')
-   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
-   ```
-   Desde este momento el login usa solo el hash. **La contraseña antigua deja de funcionar**; la nueva es la del paso 1.
-
-3. **Verificar** en `/admin/login`: entra con la nueva contraseña. Prueba también que la antigua ya no entra.
-
-4. **Mantener la fila `admin_password` durante una semana** como respaldo (no se usa mientras exista el hash).
-
-5. **Eliminar el texto plano** cuando lo consideres estable:
-   ```sql
-   DELETE FROM admin_settings WHERE key = 'admin_password';
-   ```
-
-## Reversión
-
-Si no puedes entrar después del paso 2:
+## Paso 0: revisar la tabla (solo lectura)
 ```sql
-DELETE FROM admin_settings WHERE key = 'admin_password_hash';
+select column_name, data_type from information_schema.columns
+where table_schema = 'public' and table_name = 'admin_settings';
+select key from admin_settings;
 ```
-El login vuelve a usar `admin_password`. Por eso no se borra en el paso 5 hasta verificar el acceso.
-Si `admin_password` ya fue eliminada, restablécela con:
+Confirma que existe la columna `key` con restricción única (necesaria para el `ON CONFLICT` del paso 2).
+
+## Paso 1: generar el hash en tu computador
+```bash
+node scripts/hash-admin-password.mjs
+```
+- Escribe una contraseña nueva de al menos 12 caracteres. No se muestra en pantalla y no sale de tu equipo.
+- Copia la línea que empieza por `pbkdf2_sha256$`.
+
+## Paso 2: guardar el hash (única escritura, manual)
 ```sql
-INSERT INTO admin_settings (key, value) VALUES ('admin_password', '<nueva contraseña>')
-ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+insert into admin_settings (key, value)
+values ('admin_password_hash', '<HASH_DEL_PASO_1>')
+on conflict (key) do update set value = excluded.value;
+```
+Desde este momento el login acepta solo la contraseña nueva. La fila `admin_password` se conserva como respaldo.
+
+## Paso 3: verificar antes de cerrar nada
+1. Abre `/admin/login` en una ventana privada.
+2. Entra con la contraseña nueva. Debe funcionar.
+3. Intenta la contraseña anterior. Debe fallar (esto confirma que el hash es el que manda).
+4. Confirma que el panel carga productos.
+
+No sigas al paso 4 hasta completar el 3.
+
+## Paso 4: retirar el texto plano (después de una semana sin incidentes)
+```sql
+delete from admin_settings where key = 'admin_password';
 ```
 
-## Riesgos controlados
+## Reversión (en cualquier momento antes del paso 4)
+Si no puedes entrar:
+```sql
+delete from admin_settings where key = 'admin_password_hash';
+```
+El login vuelve a usar `admin_password`. Si esa fila ya no existe, restablécela con una contraseña nueva por el mismo `on conflict`.
 
-- **Bloqueo por límite de intentos:** si fallas 5 veces en 15 minutos, el acceso se bloquea 15 minutos (por IP). Espera o usa otra red. Ver `docs/limite-intentos-login.md`.
-- **Sesiones activas:** al cambiar la contraseña, las cookies ya emitidas siguen válidas hasta su expiración (8 horas). Para invalidarlas, cambia `ADMIN_SESSION_SECRET` en Vercel (cierra todas las sesiones).
+## Notas
+- Las sesiones ya emitidas (cookie de 8 h) siguen válidas tras el cambio. Para cerrarlas todas, cambia `ADMIN_SESSION_SECRET` en Vercel; eso exige volver a entrar.
+- Si el límite de intentos bloquea tu IP, espera 15 minutos (ver `docs/limite-intentos-login.md`).

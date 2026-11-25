@@ -50,7 +50,7 @@ test('hash PBKDF2: formatos malformados se rechazan sin lanzar', async () => {
   assert.equal(await hashMod.verifyPasswordHash('x', 'texto-plano'), false);
   assert.equal(await hashMod.verifyPasswordHash('x', 'pbkdf2_sha256$0$AA==$AA=='), false);
   assert.equal(await hashMod.verifyPasswordHash('x', 'pbkdf2_sha256$abc$!!$!!'), false);
-  assert.equal(hashMod.isPasswordHash('artesellos2024'), false);
+  assert.equal(hashMod.isPasswordHash('texto-plano-de-prueba'), false);
 });
 
 test('comparación en tiempo constante', () => {
