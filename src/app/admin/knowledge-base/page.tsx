@@ -17,6 +17,7 @@ interface KnowledgeItem {
 }
 
 type Meta = {
+  kind: 'faq' | 'general';
   question: string;
   category: string;
   aliases: string; // una por línea
@@ -26,6 +27,7 @@ type Meta = {
 };
 
 const EMPTY_META: Meta = {
+  kind: 'faq',
   question: '',
   category: '',
   aliases: '',
@@ -35,23 +37,55 @@ const EMPTY_META: Meta = {
 };
 
 function metaPayload(m: Meta) {
+  const aliases = m.aliases.split('\n').map(a => a.trim()).filter(Boolean);
+  const sort_order = m.sort_order === '' ? 100 : Number(m.sort_order);
+  if (m.kind === 'faq') {
+    // Pregunta frecuente comercial: categoría oficial automática y sin embedding.
+    return {
+      question: m.question.trim(),
+      category: 'oficial',
+      aliases,
+      active: m.active,
+      sort_order,
+      generate_embedding: false,
+    };
+  }
   return {
     question: m.question.trim() || null,
     category: m.category.trim() || null,
-    aliases: m.aliases.split('\n').map(a => a.trim()).filter(Boolean),
+    aliases,
     active: m.active,
-    sort_order: m.sort_order === '' ? 100 : Number(m.sort_order),
+    sort_order,
     generate_embedding: m.generate_embedding,
   };
 }
 
+function validateMeta(m: Meta): string | null {
+  if (m.kind === 'faq' && !m.question.trim()) return 'La pregunta principal es obligatoria en una pregunta frecuente';
+  return null;
+}
+
 function MetaFields({ meta, setMeta }: { meta: Meta; setMeta: (m: Meta) => void }) {
   const set = (patch: Partial<Meta>) => setMeta({ ...meta, ...patch });
-  const isFaq = meta.question.trim().length > 0;
+  const isFaq = meta.kind === 'faq';
+  const tabClass = (active: boolean) =>
+    `px-3 py-1.5 text-sm rounded-md border ${active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`;
   return (
-    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 pt-4">
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Pregunta principal (opcional, para preguntas frecuentes)</label>
+    <div className="mt-4 space-y-4 border-t border-gray-200 pt-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-700 mr-2">Tipo de entrada:</span>
+        <button type="button" className={tabClass(isFaq)} onClick={() => set({ kind: 'faq' })}>
+          Pregunta frecuente
+        </button>
+        <button type="button" className={tabClass(!isFaq)} onClick={() => set({ kind: 'general' })}>
+          Información general
+        </button>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {isFaq ? 'Pregunta principal' : 'Pregunta principal (opcional)'}
+        </label>
         <input
           value={meta.question}
           onChange={(e) => set({ question: e.target.value })}
@@ -59,49 +93,54 @@ function MetaFields({ meta, setMeta }: { meta: Meta; setMeta: (m: Meta) => void 
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         />
       </div>
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Formas alternativas (una por línea)</label>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Formas alternativas de preguntar (una por línea)</label>
         <textarea
           value={meta.aliases}
           onChange={(e) => set({ aliases: e.target.value })}
-          disabled={!isFaq}
+          disabled={isFaq ? false : !meta.question.trim()}
           placeholder={'costo del envio\nenvían a regiones'}
           className="w-full h-20 px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-100"
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-        <input
-          value={meta.category}
-          onChange={(e) => set({
-            category: e.target.value,
-            // Al marcar una FAQ oficial, se desactiva el embedding por defecto.
-            generate_embedding: e.target.value.trim() === 'oficial' ? false : meta.generate_embedding,
-          })}
-          placeholder="envios, horarios, marcas…"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Orden de presentación</label>
-        <input
-          type="number"
-          min={0}
-          max={9999}
-          value={meta.sort_order}
-          onChange={(e) => set({ sort_order: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        />
-      </div>
+
+      {!isFaq && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+            <input
+              value={meta.category}
+              onChange={(e) => set({ category: e.target.value })}
+              placeholder="marcas, productos, empresa…"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Orden de presentación</label>
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={meta.sort_order}
+              onChange={(e) => set({ sort_order: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={meta.active} onChange={(e) => set({ active: e.target.checked })} />
           Activo (visible para el chat)
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={meta.generate_embedding} onChange={(e) => set({ generate_embedding: e.target.checked })} />
-          Generar embedding para búsqueda RAG (usa OpenAI)
-        </label>
+        {!isFaq && (
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={meta.generate_embedding} onChange={(e) => set({ generate_embedding: e.target.checked })} />
+            Generar embedding para búsqueda RAG (usa OpenAI)
+          </label>
+        )}
       </div>
     </div>
   );
@@ -148,6 +187,11 @@ export default function KnowledgeBasePage() {
       setError('El contenido no puede estar vacío');
       return;
     }
+    const metaError = validateMeta(meta);
+    if (metaError) {
+      setError(metaError);
+      return;
+    }
 
     try {
       setError(null);
@@ -176,6 +220,11 @@ export default function KnowledgeBasePage() {
   const handleEdit = async (id: number) => {
     if (!newContent.trim()) {
       setError('El contenido no puede estar vacío');
+      return;
+    }
+    const metaError = validateMeta(meta);
+    if (metaError) {
+      setError(metaError);
       return;
     }
 
@@ -286,12 +335,13 @@ export default function KnowledgeBasePage() {
     setIsEditing(item.id);
     setNewContent(item.content);
     setMeta({
+      kind: item.category === 'oficial' ? 'faq' : 'general',
       question: item.question ?? '',
       category: item.category ?? '',
       aliases: (item.aliases ?? []).join('\n'),
       active: item.active !== false,
       sort_order: String(item.sort_order ?? 100),
-      // FAQ oficiales: sin embedding por defecto (no consume OpenAI al guardar).
+      // Información general: embedding según la casilla. Las FAQ no generan embedding.
       generate_embedding: (item.category ?? '') !== 'oficial',
     });
     setIsAdding(false);
@@ -385,6 +435,7 @@ export default function KnowledgeBasePage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Nuevo Fragmento
             </h2>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Respuesta</label>
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
@@ -430,6 +481,7 @@ export default function KnowledgeBasePage() {
                   <div key={item.id} className="p-6 hover:bg-gray-50">
                     {isEditing === item.id ? (
                       <div className="space-y-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Respuesta</label>
                         <textarea
                           value={newContent}
                           onChange={(e) => setNewContent(e.target.value)}
