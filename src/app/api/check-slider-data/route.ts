@@ -3,8 +3,12 @@ export const runtime = 'edge';
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { publicEnv } from '@/lib/env/public'
+import { requireAdminSession } from '@/lib/adminSession'
+import type { NextRequest } from 'next/server'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authError = await requireAdminSession(req)
+  if (authError) return authError
   try {
     const supabase = createClient(
       publicEnv.NEXT_PUBLIC_SUPABASE_URL,
