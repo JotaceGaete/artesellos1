@@ -201,3 +201,48 @@ test('answerToSse / readChatStream: eventos de contenido, fichas y pie', async (
   assert.equal(events[2].footer, 'Pie');
   assert.equal(events.length, 3);
 });
+
+const KB = [
+  { id: 118, content: 'Los horarios de atención son: Lunes a Viernes de 9:00 a 17:00 hs', question: null, aliases: null },
+  { id: 110, content: 'Artesellos realiza envíos a todo Chile. Para pedidos superiores a $15.000, el envío tiene un costo de $3.500.', question: null, aliases: null },
+  { id: 119, content: 'Enviamos a todo Chile en 3 días hábiles', question: null, aliases: null },
+  { id: 120, content: 'Enviamos a todo Chile en 3 días hábiles', question: null, aliases: null },
+];
+
+test('texto base: encuentra el fragmento de horarios sin IA', () => {
+  const r = engine.matchKnowledgeText('¿Cuál es el horario de atención?', KB);
+  assert.equal(r?.id, 118);
+});
+
+test('texto base: duplicados con el mismo texto no generan ambigüedad', () => {
+  const rows = [KB[2], KB[3]];
+  const r = engine.matchKnowledgeText('envios a todo chile', rows);
+  assert.equal(r?.content, 'Enviamos a todo Chile en 3 días hábiles');
+});
+
+test('texto base: respuestas distintas casi empatadas no se responden', () => {
+  const rows = [
+    { id: 1, content: 'Enviamos a todo Chile en 3 días', question: null, aliases: null },
+    { id: 2, content: 'Enviamos a todo Chile en 5 días', question: null, aliases: null },
+  ];
+  assert.equal(engine.matchKnowledgeText('envios a todo chile', rows), null);
+});
+
+test('texto base: consulta con poca cobertura no se responde', () => {
+  assert.equal(engine.matchKnowledgeText('garantía de productos importados', KB), null);
+});
+
+test('texto base: una sola palabra útil no se responde', () => {
+  assert.equal(engine.matchKnowledgeText('horario', KB), null);
+});
+
+test('saludos: respuesta local solo para mensajes cortos', () => {
+  assert.match(engine.smallTalkAnswer('hola').content, /¿En qué te puedo ayudar/);
+  assert.match(engine.smallTalkAnswer('Gracias').content, /wa\.me\/56922384216/);
+  assert.equal(engine.smallTalkAnswer('hola quiero un shiny 722'), null);
+});
+
+test('cuota agotada: mensaje que deriva a WhatsApp sin cerrar el chat', () => {
+  assert.match(engine.AI_QUOTA_MESSAGE, /wa\.me\/56922384216/);
+  assert.match(engine.AI_QUOTA_MESSAGE, /seguir preguntando/);
+});

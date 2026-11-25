@@ -193,6 +193,108 @@ export async function answerCatalogIntent(
   return buildProductAnswer(rows);
 }
 
+export const WHATSAPP_URL = 'https://wa.me/56922384216';
+
+/** Medición de latencia por mecanismo (visible en los registros del servidor). */
+export function logLatency(mechanism: string, startedAt: number, extra = ''): void {
+  console.log(`[latencia] ${mechanism} ms=${Date.now() - startedAt}${extra ? ` ${extra}` : ''}`);
+}
+
+// Saludos y agradecimientos: respuesta local, sin IA ni cuota. Solo mensajes cortos.
+const SMALL_TALK: Array<{ re: RegExp; reply: string }> = [
+  {
+    re: /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey)$/,
+    reply: '¡Hola! ¿En qué te puedo ayudar? Puedes preguntarme por un modelo (por ejemplo, "Shiny 722"), por envíos, horarios o por cómo hacer tu pedido.',
+  },
+  {
+    re: /^(gracias|muchas gracias|ok|okey|listo|perfecto|chao|adios)$/,
+    reply: `¡Con gusto! Si necesitas algo más, aquí estoy. Para concretar tu pedido también puedes escribirnos por WhatsApp: ${WHATSAPP_URL}`,
+  },
+];
+
+export function smallTalkAnswer(query: string): ChatAnswer | null {
+  const norm = normalizeText(query);
+  if (!norm || norm.split(' ').length > 3) return null;
+  const hit = SMALL_TALK.find(t => t.re.test(norm));
+  return hit ? { content: hit.reply } : null;
+}
+
+// ----- Búsqueda textual en knowledge_base (sin embeddings, sin OpenAI) -----
+
+const KB_STOP = new Set([
+  'que', 'como', 'cual', 'cuales', 'cuanto', 'cuanta', 'cuantos', 'cuando', 'donde', 'para', 'por',
+  'con', 'sin', 'hay', 'hacen', 'tienen', 'tiene', 'puedo', 'puede', 'quiero', 'quisiera', 'necesito',
+  'favor', 'sobre', 'del', 'los', 'las', 'una', 'uno', 'unos', 'unas', 'pero', 'este', 'esta', 'hola',
+  'tengo', 'son', 'ser', 'estan', 'estoy', 'mas', 'muy',
+]);
+
+/** Raíces de palabras (5 letras) para tolerar plurales y conjugaciones simples. */
+function kbStems(text: string): Set<string> {
+  return new Set(
+    normalizeText(text)
+      .split(' ')
+      .filter(t => t.length >= 3 && !KB_STOP.has(t))
+      .map(t => (t.length > 5 ? t.slice(0, 5) : t)),
+  );
+}
+
+export type KbRow = { id: number; content: string; question: string | null; aliases: string[] | null };
+
+const KB_MIN_COVERAGE = 0.6;
+const KB_MIN_MARGIN = 0.15;
+
+/**
+ * Busca el fragmento que responde la consulta. Devuelve null si no es suficientemente confiable:
+ * pocas palabras de la consulta, cobertura baja, o dos respuestas distintas casi empatadas.
+ * Fragmentos con el mismo texto (duplicados) cuentan como una sola respuesta.
+ */
+export function matchKnowledgeText(query: string, rows: KbRow[]): KbRow | null {
+  const qStems = [...kbStems(query)];
+  if (qStems.length < 2) return null;
+
+  const scored = new Map<string, { row: KbRow; score: number; coverage: number }>();
+  for (const row of rows) {
+    if (!row.content) continue;
+    const key = normalizeText(row.content);
+    const body = kbStems(row.content);
+    const questionText = [row.question ?? '', ...(row.aliases ?? [])].join(' ');
+    const qset = kbStems(questionText);
+    const hits = qStems.filter(q => body.has(q)).length;
+    const qHits = qStems.filter(q => qset.has(q)).length;
+    const coverage = hits / qStems.length;
+    const score = coverage + 0.5 * (qHits / qStems.length);
+    const prev = scored.get(key);
+    if (!prev || score > prev.score) scored.set(key, { row, score, coverage });
+  }
+
+  const ranked = [...scored.values()].sort((a, b) => b.score - a.score);
+  if (ranked.length === 0) return null;
+  const top = ranked[0];
+  if (top.coverage < KB_MIN_COVERAGE) return null;
+  const second = ranked[1];
+  if (second && second.score > top.score - KB_MIN_MARGIN) return null;
+  return top.row;
+}
+
+export async function answerFromKnowledge(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
+  const t0 = Date.now();
+  try {
+    const { data, error } = await (admin as any)
+      .from('knowledge_base')
+      .select('id, content, question, aliases')
+      .eq('active', true)
+      .limit(500);
+    if (error) throw error;
+    const row = matchKnowledgeText(query, (data ?? []) as KbRow[]);
+    logLatency('texto_base', t0, row ? 'resultado=si' : 'resultado=no');
+    return row ? { content: row.content } : null;
+  } catch (err) {
+    logLatency('texto_base', t0, 'resultado=error');
+    console.error('[chat] Búsqueda textual no disponible:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
 /** Respuesta directa de preguntas frecuentes desde knowledge_base. Null si no hay coincidencia clara. */
 export async function answerFaq(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
   try {
@@ -217,17 +319,29 @@ export async function answerFaq(admin: SupabaseClient, query: string): Promise<C
  * Motor completo de respuestas directas. Nunca lanza: devuelve null si debe continuar el flujo normal.
  */
 export async function tryDirectAnswer(admin: SupabaseClient, query: string): Promise<ChatAnswer | null> {
+  const small = smallTalkAnswer(query);
+  if (small) return small;
+
+  const t0 = Date.now();
   const faq = await answerFaq(admin, query);
+  logLatency('faq', t0, faq ? 'resultado=si' : 'resultado=no');
   if (faq) return faq;
 
   const intent = parseCatalogIntent(query);
-  if (!intent) return null;
-  try {
-    return await answerCatalogIntent(admin, intent);
-  } catch (err) {
-    console.error('[chat] Catálogo no disponible:', err instanceof Error ? err.message : String(err));
-    return null;
+  if (intent) {
+    const t1 = Date.now();
+    try {
+      const ans = await answerCatalogIntent(admin, intent);
+      logLatency('catalogo', t1, 'resultado=si');
+      return ans;
+    } catch (err) {
+      logLatency('catalogo', t1, 'resultado=error');
+      console.error('[chat] Catálogo no disponible:', err instanceof Error ? err.message : String(err));
+      return null;
+    }
   }
+
+  return answerFromKnowledge(admin, query);
 }
 
 // ----- Cuota de consultas IA (servidor, persistente y atómica) -----
@@ -268,4 +382,4 @@ export async function consumeAiQuota(admin: SupabaseClient, key: string): Promis
 }
 
 export const AI_QUOTA_MESSAGE =
-  'Por hoy alcanzaste el límite de consultas automáticas. Puedes seguir preguntando por modelos concretos (por ejemplo, "Shiny 722") o revisar nuestras preguntas frecuentes. Para más ayuda, escríbenos por WhatsApp.';
+  `Por hoy ya usamos las consultas automáticas, pero puedes seguir preguntando por modelos (por ejemplo, "Shiny 722"), envíos, horarios o cómo hacer tu pedido. Para atención inmediata escríbenos por WhatsApp: ${WHATSAPP_URL}`;

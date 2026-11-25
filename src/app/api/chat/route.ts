@@ -5,6 +5,7 @@ import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import {
   tryDirectAnswer,
+  logLatency,
   buildProductAnswer,
   normalizeStockRow,
   hashChatClient,
@@ -53,6 +54,7 @@ export const maxDuration = 30;
 
 
 export async function POST(req: Request) {
+  const requestStart = Date.now();
   try {
     // Validar variables de entorno críticas
     const missingVars: string[] = [];
@@ -669,6 +671,7 @@ PREGUNTA DEL USUARIO: ${lastMessage}`;
     }
 
 
+    logLatency('ruta_completa', requestStart, `ia=${responseCards ? 'no' : 'posible'}`);
     // Enviar respuesta como stream
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
