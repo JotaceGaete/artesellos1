@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabaseServer'
+import { requireAdminSession } from '@/lib/adminSession'
 import type { Json } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await requireAdminSession(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const supabase = createSupabaseAdmin()
     const { data: product, error } = await supabase
@@ -34,6 +38,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authError = await requireAdminSession(request);
+    if (authError) return authError;
+
     const { id } = await params;
     const body = await request.json()
     const {

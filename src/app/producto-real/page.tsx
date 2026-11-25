@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { publicEnv } from '@/lib/env/public';
 
 export default function ProductoRealPage() {
   const [producto, setProducto] = useState<any>(null);
@@ -14,10 +15,10 @@ export default function ProductoRealPage() {
         console.log('🚀 Cargando TU producto usando fetch directo...');
         
         // Usar fetch directo a la API de Supabase
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/products?select=*`, {
+        const response = await fetch(`${publicEnv.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/products?select=*`, {
           headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            'apikey': publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
             'Content-Type': 'application/json'
           }
         });

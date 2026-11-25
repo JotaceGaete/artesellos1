@@ -3,11 +3,12 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Json } from '@/types/database';
-
-// Middleware protege esta ruta — no se requiere auth adicional aquí
+import { requireAdminSession } from '@/lib/adminSession';
 
 export async function GET(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
     const supabase = createSupabaseAdmin();
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
@@ -31,6 +32,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
     const body = await req.json().catch(() => ({}));
     const {
       name, slug, price, regular_price,

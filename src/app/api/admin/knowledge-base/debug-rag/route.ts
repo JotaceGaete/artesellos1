@@ -4,9 +4,12 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdminSession } from '@/lib/adminSession';
 
 export async function GET(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
     const { searchParams } = new URL(req.url);
     const query = searchParams.get('query') || 'que colores de tinta tienen';
 

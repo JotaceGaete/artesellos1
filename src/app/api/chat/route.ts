@@ -2,12 +2,10 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { publicEnv } from '@/lib/env/public';
 
 // Cliente Supabase (para búsqueda de productos)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 // Cliente OpenAI - inicializado condicionalmente
 let openai: OpenAI | null = null;

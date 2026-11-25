@@ -2,6 +2,7 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdminSession } from '@/lib/adminSession';
 
 const BUCKET = 'images';
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -9,6 +10,8 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/a
 
 export async function POST(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
     const form = await req.formData();
     const file = form.get('file') as File | null;
 

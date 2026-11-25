@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Product } from '@/types/product';
 import Link from 'next/link';
+import { publicEnv } from '@/lib/env/public';
 
 // TU TIENDA REAL - Versión que SÍ funciona con Supabase
 export default function MiTienda() {
@@ -15,19 +16,12 @@ export default function MiTienda() {
     async function loadProductos() {
       try {
         console.log('🚀 Cargando TU tienda real desde Supabase...');
-        
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error('❌ Variables de entorno de Supabase no configuradas');
-        }
-
-        console.log('🔧 Supabase URL:', supabaseUrl ? 'Configurada ✅' : '❌ Faltante');
-        console.log('🔧 Supabase Key:', supabaseKey ? 'Configurada ✅' : '❌ Faltante');
 
         // Crear cliente de Supabase
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const supabase = createClient(
+          publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+          publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
         
         // Obtener productos directamente
         const { data: productosData, error } = await supabase

@@ -17,14 +17,14 @@ function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/auth/login', {
+      const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message ?? 'Error al iniciar sesión');
+        setError(data.error ?? data.message ?? 'Error al iniciar sesión');
         return;
       }
       router.push(from);

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { ADMIN_COOKIE } from '@/lib/adminAuth';
+import { ADMIN_COOKIE, verifyAdminToken } from '@/lib/adminSession';
 
 export default async function AdminBadge() {
   const isDev = process.env.NODE_ENV !== 'production';
@@ -8,7 +8,7 @@ export default async function AdminBadge() {
   if (!isDev) {
     const cookieStore = await cookies();
     const token = cookieStore.get(ADMIN_COOKIE)?.value;
-    if (!token) return null;
+    if (!token || !(await verifyAdminToken(token))) return null;
   }
 
   return (

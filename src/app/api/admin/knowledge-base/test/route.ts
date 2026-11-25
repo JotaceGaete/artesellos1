@@ -3,9 +3,12 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdminSession } from '@/lib/adminSession';
 
 export async function GET(req: NextRequest) {
   try {
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
     const supabase = createSupabaseAdmin();
     
     // Verificar si la tabla existe

@@ -1,28 +1,21 @@
-// Ruta para regenerar embeddings de todos los fragmentos que no los tienen
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin, getUser } from '@/lib/supabaseServer';
+import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import OpenAI from 'openai';
-
-const ALLOWED_ADMIN_EMAILS = new Set<string>([
-  'jotacegaete@gmail.com',
-  'artesellos@outlook.com',
-]);
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { requireAdminSession } from '@/lib/adminSession';
 
 export async function POST(req: NextRequest) {
   try {
-    const BYPASS = process.env.NEXT_PUBLIC_ADMIN_BYPASS === 'true' || process.env.NODE_ENV !== 'production';
-    if (!BYPASS) {
-      const user = await getUser();
-      if (!user?.email || !ALLOWED_ADMIN_EMAILS.has(user.email)) {
-        return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
-      }
+    const authError = await requireAdminSession(req);
+    if (authError) return authError;
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'OPENAI_API_KEY no configurado' }, { status: 500 });
     }
+    const openai = new OpenAI({ apiKey });
 
     const supabase = createSupabaseAdmin();
     

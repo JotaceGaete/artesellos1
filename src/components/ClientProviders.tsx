@@ -9,8 +9,22 @@ import ChatInterface from '@/components/ChatInterface';
 import { WholesaleLevelBanner } from '@/components/wholesale/WholesalePrice';
 import FloatingWhatsApp from '@/components/seo/FloatingWhatsApp';
 import GlobalConversionCta from '@/components/seo/GlobalConversionCta';
+import { usePathname } from 'next/navigation';
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith('/admin');
+
+  if (isAdminRoute) {
+    return (
+      <CartProvider>
+        <FavoritesProvider>
+          {children}
+        </FavoritesProvider>
+      </CartProvider>
+    );
+  }
+
   return (
     <CartProvider>
       <FavoritesProvider>
@@ -24,8 +38,6 @@ export default function ClientProviders({ children }: { children: React.ReactNod
           <GlobalConversionCta />
           <Footer />
           <FloatingWhatsApp />
-          
-          {/* Chatbot flotante disponible en todas las páginas */}
           <ChatInterface />
         </div>
       </FavoritesProvider>
