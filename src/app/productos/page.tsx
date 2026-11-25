@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getProducts, getCategories } from '@/lib/woocommerce';
+import { getProducts } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { Product as ProductType } from '@/types/product';
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
@@ -66,18 +66,19 @@ const convertWooCommerceToProductType = (wooProduct: WooCommerceProduct): Produc
   };
 };
 
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  count?: number;
-}
-
 const sortOptions = [
   { value: 'name', label: 'Nombre A-Z' },
   { value: '-name', label: 'Nombre Z-A' },
   { value: 'price', label: 'Precio: Menor a Mayor' },
   { value: '-price', label: 'Precio: Mayor a Menor' },
+];
+
+// Categorías del catálogo: label visible → value que coincide con products.categories[]
+const CATALOG_CATEGORIES = [
+  { id: 1, slug: 'automaticos', label: 'Automáticos' },
+  { id: 2, slug: 'bolsillo',    label: 'De bolsillo' },
+  { id: 3, slug: 'fechadores',  label: 'Fechadores' },
+  { id: 4, slug: 'redondos',    label: 'Redondos' },
 ];
 
 // Marcas ficticias (reemplazar con datos reales de Supabase)
@@ -98,125 +99,123 @@ const normalize = (str: string): string =>
     .replace(/\s+/g, ' ');
 
 export default function ProductosPage() {
+  // allProducts: dataset completo cargado UNA SOLA VEZ desde Supabase
+  const [allProducts, setAllProducts] = useState<ProductType[]>([]);
+  // products: resultado filtrado derivado de allProducts (sin fetch adicional)
   const [products, setProducts] = useState<ProductType[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
+  // selectedCategories guarda slugs normalizados (ej: "automaticos", "fechadores")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState<string>('name');
-  
+
   // UI States
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [categoryExpanded, setCategoryExpanded] = useState(true);
   const [brandExpanded, setBrandExpanded] = useState(true);
   const [priceExpanded, setPriceExpanded] = useState(true);
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 12;
 
+  // Carga inicial: solo UNA vez al montar el componente
   useEffect(() => {
-    loadCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadAllProducts();
   }, []);
 
+  // Re-filtrar en memoria cuando cambia cualquier filtro (sin fetch)
   useEffect(() => {
-    loadProducts();
+    applyFilters();
     setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
+  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, allProducts]);
 
-  const loadCategories = async () => {
-    try {
-      const categoriesData = await getCategories();
-      setCategories(categoriesData || []);
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  };
-
-  const loadProducts = async () => {
+  // Fetch único: carga todos los productos y los guarda en allProducts
+  const loadAllProducts = async () => {
     try {
       setLoading(true);
       const result = await getProducts({ per_page: 100 });
-      let filteredProducts = result.products || [];
-
-      // Filtrar por categorías
-      if (selectedCategories.length > 0) {
-        filteredProducts = filteredProducts.filter(product =>
-          product.categories.some(cat => selectedCategories.includes(cat.id.toString()))
-        );
-      }
-
-      // Filtrar por marcas (simulado con nombre del producto)
-      if (selectedBrands.length > 0) {
-        filteredProducts = filteredProducts.filter(product =>
-          selectedBrands.some(brand => product.name.toLowerCase().includes(brand.toLowerCase()))
-        );
-      }
-
-      // Filtrar por búsqueda (nombre, categorías, descripción y tags)
-      if (searchTerm.trim()) {
-        const words = normalize(searchTerm)
-          .split(' ')
-          .filter(w => w.length > 1 && !STOP_WORDS.has(w));
-        if (words.length > 0) {
-          filteredProducts = filteredProducts.filter(product => {
-            const haystack = [
-              product.name,
-              product.description || '',
-              product.short_description || '',
-              ...(product.categories || []).map((c: { name: string }) => c.name),
-              ...(product.tags || []).map((t: { name: string }) => t.name),
-            ]
-              .filter(Boolean)
-              .map(normalize)
-              .join(' ');
-            return words.every(word => haystack.includes(word));
-          });
-        }
-      }
-
-      // Filtrar por rango de precio
-      if (minPrice || maxPrice) {
-        filteredProducts = filteredProducts.filter(product => {
-          const price = parseFloat(product.price);
-          const min = minPrice ? parseFloat(minPrice) : 0;
-          const max = maxPrice ? parseFloat(maxPrice) : Infinity;
-          return price >= min && price <= max;
-        });
-      }
-
-      // Ordenar
-      filteredProducts.sort((a, b) => {
-        switch (sortBy) {
-          case 'name':
-            return a.name.localeCompare(b.name);
-          case '-name':
-            return b.name.localeCompare(a.name);
-          case 'price':
-            return parseFloat(a.price) - parseFloat(b.price);
-          case '-price':
-            return parseFloat(b.price) - parseFloat(a.price);
-          default:
-            return 0;
-        }
-      });
-
-      const convertedProducts = filteredProducts.map(convertWooCommerceToProductType);
-      setProducts(convertedProducts);
+      const converted = (result.products || []).map(convertWooCommerceToProductType);
+      setAllProducts(converted);
     } catch (error) {
-      console.error('Error loading products:', error);
-      setProducts([]);
+      console.error('Error cargando productos:', error);
+      setAllProducts([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filtrado 100% client-side sobre allProducts (sin fetch, sin race condition)
+  const applyFilters = useCallback(() => {
+    let filtered = [...allProducts];
+
+    // Filtrar por categorías: ambos lados normalizados para comparar sin acentos ni case
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
+        product.categories.some(cat => selectedCategories.includes(normalize(cat.name)))
+      );
+    }
+
+    // Filtrar por marcas
+    if (selectedBrands.length > 0) {
+      filtered = filtered.filter(product =>
+        selectedBrands.some(brand => product.name.toLowerCase().includes(brand.toLowerCase()))
+      );
+    }
+
+    // Filtrar por texto: nombre, categorías, descripción y tags
+    if (searchTerm.trim()) {
+      const words = normalize(searchTerm)
+        .split(' ')
+        .filter(w => w.length > 1 && !STOP_WORDS.has(w));
+
+      if (words.length > 0) {
+        filtered = filtered.filter(product => {
+          const haystack = [
+            product.name,
+            product.description || '',
+            product.short_description || '',
+            ...(product.categories || []).map(c => c.name),
+            ...(product.tags || []).map(t => t.name),
+          ]
+            .filter(Boolean)
+            .map(normalize)
+            .join(' ');
+          return words.every(word => haystack.includes(word));
+        });
+      }
+    }
+
+    // Filtrar por precio
+    if (minPrice || maxPrice) {
+      filtered = filtered.filter(product => {
+        const price = parseFloat(product.price);
+        const min = minPrice ? parseFloat(minPrice) : 0;
+        const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+        return price >= min && price <= max;
+      });
+    }
+
+    // Ordenar
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':  return a.name.localeCompare(b.name);
+        case '-name': return b.name.localeCompare(a.name);
+        case 'price': return parseFloat(a.price) - parseFloat(b.price);
+        case '-price': return parseFloat(b.price) - parseFloat(a.price);
+        default: return 0;
+      }
+    });
+
+    setProducts(filtered);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProducts, searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev =>
@@ -318,16 +317,16 @@ export default function ProductosPage() {
         
         {categoryExpanded && (
           <div className="mt-4 space-y-3">
-            {categories.slice(0, 8).map(category => (
-              <label key={category.id} className="flex items-center gap-2 cursor-pointer group">
+            {CATALOG_CATEGORIES.map(category => (
+              <label key={category.slug} className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
-                  checked={selectedCategories.includes(category.id.toString())}
-                  onChange={() => toggleCategory(category.id.toString())}
+                  checked={selectedCategories.includes(category.slug)}
+                  onChange={() => toggleCategory(category.slug)}
                   className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                  {category.name}
+                  {category.label}
                 </span>
               </label>
             ))}
@@ -416,7 +415,10 @@ export default function ProductosPage() {
             Catálogo de Productos
           </h1>
           <p className="text-gray-600">
-            {products.length} producto{products.length !== 1 ? 's' : ''} disponible{products.length !== 1 ? 's' : ''}
+            {getActiveFiltersCount() > 0
+              ? `${products.length} de ${allProducts.length} producto${allProducts.length !== 1 ? 's' : ''}`
+              : `${allProducts.length} producto${allProducts.length !== 1 ? 's' : ''} disponible${allProducts.length !== 1 ? 's' : ''}`
+            }
           </p>
         </div>
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientProviders from "@/components/ClientProviders";
+import AdminBadge from "@/components/AdminBadge";
 import { SITE_URL } from "@/lib/seo";
 
 const inter = Inter({
@@ -56,6 +57,7 @@ export default function RootLayout({
         <ClientProviders>
           {children}
         </ClientProviders>
+        <AdminBadge />
       </body>
     </html>
   );

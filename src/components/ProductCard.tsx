@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { Product } from '@/types/product';
 import { Eye } from 'lucide-react';
+import { resolveAssetUrl } from '@/lib/assetUrl';
 
 interface ProductCardProps {
   product: Product;
@@ -15,33 +16,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Función para sanear URLs de imagen
-  const safeUrl = (url?: string) => {
-    const placeholder = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
-    if (!url || typeof url !== 'string') return placeholder;
-    const trimmed = url.trim();
-    if (!trimmed) return placeholder;
-
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
-      return trimmed;
-    }
-
-    try {
-      const base = (process.env.NEXT_PUBLIC_ASSETS_BASE_URL || 'https://artesellos.cl').replace(/\/+$/, '');
-      let key = trimmed.replace(/^\/+/, '');
-      key = key.replace(/^(timbres\/)/i, '');
-      const encoded = key.split('/')
-        .filter(Boolean)
-        .map((seg) => encodeURIComponent(seg))
-        .join('/');
-      return `${base}/${encoded}`;
-    } catch {
-      return placeholder;
-    }
-  };
-
-  const primaryImage = safeUrl(product.images?.[0]?.src || (product as any).images?.[0]);
-  const secondaryImage = safeUrl(product.images?.[1]?.src || (product as any).images?.[1]) || primaryImage;
+  const primaryImage = resolveAssetUrl(product.images?.[0]?.src || (product as any).images?.[0]);
+  const secondaryImage = resolveAssetUrl(product.images?.[1]?.src || (product as any).images?.[1]) || primaryImage;
   const currentImage = isHovered && product.images.length > 1 ? secondaryImage : primaryImage;
 
   // Formatear precio
