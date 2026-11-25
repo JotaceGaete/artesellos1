@@ -213,21 +213,6 @@ export async function tryDirectAnswer(admin: SupabaseClient, query: string): Pro
 
 export const AI_DAILY_LIMIT = 5;
 
-/**
- * IP del cliente para la cuota. Se usa el último valor de x-forwarded-for (añadido por la plataforma),
- * nunca el primero, que el cliente puede falsear. x-real-ip tiene prioridad si existe.
- */
-export function getTrustedClientIp(req: Request): string {
-  const realIp = req.headers.get('x-real-ip')?.trim();
-  if (realIp) return realIp;
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) {
-    const parts = forwarded.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length) return parts[parts.length - 1];
-  }
-  return 'unknown';
-}
-
 /** HMAC de la IP con prefijo propio para la cuota de chat (no se guarda la IP en claro). */
 export async function hashChatClient(ip: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(

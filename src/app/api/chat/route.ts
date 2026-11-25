@@ -1,3 +1,4 @@
+import { getTrustedClientIp } from '@/lib/clientIp';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { findRelevantContext } from '@/lib/vectorSearch';
@@ -8,7 +9,6 @@ import {
   hashChatClient,
   aiQuotaKey,
   consumeAiQuota,
-  getTrustedClientIp,
   AI_QUOTA_MESSAGE,
 } from '@/lib/chatAnswerEngine';
 import { publicEnv } from '@/lib/env/public';
@@ -129,7 +129,9 @@ INSTRUCCIONES:
     const requireAiQuota = async (): Promise<boolean> => {
       const secret = process.env.ADMIN_SESSION_SECRET;
       if (!adminForDirect || !secret) return false; // fail-closed
-      const clientHash = await hashChatClient(getTrustedClientIp(req), secret);
+      const clientIp = getTrustedClientIp(req);
+      if (!clientIp) return false; // sin IP confiable no se consume cuota: fail-closed
+      const clientHash = await hashChatClient(clientIp, secret);
       return consumeAiQuota(adminForDirect, aiQuotaKey(clientHash));
     };
 

@@ -7,7 +7,8 @@ import { publicEnv } from '@/lib/env/public';
 import { SUPABASE_SERVICE_ROLE_KEY } from '@/lib/env/server/supabase';
 import { ADMIN_SESSION_SECRET } from '@/lib/env/server/admin-session';
 import { constantTimeEqual, verifyPasswordHash } from '@/lib/adminPasswordHash';
-import { beginLoginAttempt, finishLoginAttempt, getClientIp, hashIp } from '@/lib/adminLoginRateLimit';
+import { beginLoginAttempt, finishLoginAttempt, hashIp } from '@/lib/adminLoginRateLimit';
+import { getTrustedClientIp } from '@/lib/clientIp';
 
 function getAdminClient() {
   return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -54,7 +55,12 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getAdminClient();
-    const ipHash = await hashIp(getClientIp(req), ADMIN_SESSION_SECRET);
+    const clientIp = getTrustedClientIp(req);
+    if (!clientIp) {
+      // Sin IP confiable no se puede aplicar el límite: fail-closed.
+      return NextResponse.json({ error: 'Servicio no disponible, intenta más tarde' }, { status: 503 });
+    }
+    const ipHash = await hashIp(clientIp, ADMIN_SESSION_SECRET);
 
     const begin = await beginLoginAttempt(supabase, ipHash);
     if (begin.allowed === false && 'unavailable' in begin) {

@@ -23,11 +23,6 @@ export async function hashIp(ip: string, secret: string): Promise<string> {
   return Array.from(new Uint8Array(sig), b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export function getClientIp(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return req.headers.get('x-real-ip')?.trim() || 'unknown';
-}
 
 /** Registra el intento como pendiente y comprueba el límite. Fail-closed ante errores. */
 export async function beginLoginAttempt(admin: SupabaseClient, ipHash: string): Promise<LoginBegin> {
