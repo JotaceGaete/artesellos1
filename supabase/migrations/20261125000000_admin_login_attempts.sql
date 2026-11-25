@@ -7,6 +7,8 @@
 -- * Un intento que nunca se resuelve (fallo del servidor a mitad) cuenta como fallo:
 --   el sesgo es hacia bloquear, no hacia permitir.
 -- * Un login correcto pasa a 'ok' y deja de contar.
+-- * Sin límite global: un contador global permitiría a un atacante bloquear al
+--   administrador desde cualquier IP (DoS). Solo se limita por IP.
 -- * Serialización: pg_advisory_xact_lock sobre una clave fija durante begin.
 -- * Limpieza: en cada begin se borran hasta 500 registros de más de 7 días.
 
@@ -37,7 +39,6 @@ set search_path = public
 as $$
 declare
   v_ip_count integer;
-  v_global_count integer;
   v_id bigint;
 begin
   perform pg_advisory_xact_lock(hashtext('admin_login_gate'));
@@ -57,16 +58,6 @@ begin
 
   if v_ip_count >= 5 then
     return query select false, 900, null::bigint;
-    return;
-  end if;
-
-  select count(*) into v_global_count
-  from public.admin_login_attempts
-  where status in ('pending', 'failed')
-    and created_at >= now() - interval '1 hour';
-
-  if v_global_count >= 50 then
-    return query select false, 3600, null::bigint;
     return;
   end if;
 
