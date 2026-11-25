@@ -7,8 +7,100 @@ import { Plus, Trash2, Edit2, Database, Loader2, CheckCircle2, XCircle } from 'l
 interface KnowledgeItem {
   id: number;
   content: string;
+  category?: string | null;
+  question?: string | null;
+  aliases?: string[] | null;
+  active?: boolean;
+  sort_order?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+type Meta = {
+  question: string;
+  category: string;
+  aliases: string; // una por línea
+  active: boolean;
+  sort_order: string;
+  generate_embedding: boolean;
+};
+
+const EMPTY_META: Meta = {
+  question: '',
+  category: '',
+  aliases: '',
+  active: true,
+  sort_order: '100',
+  generate_embedding: true,
+};
+
+function metaPayload(m: Meta) {
+  return {
+    question: m.question.trim() || null,
+    category: m.category.trim() || null,
+    aliases: m.aliases.split('\n').map(a => a.trim()).filter(Boolean),
+    active: m.active,
+    sort_order: m.sort_order === '' ? 100 : Number(m.sort_order),
+    generate_embedding: m.generate_embedding,
+  };
+}
+
+function MetaFields({ meta, setMeta }: { meta: Meta; setMeta: (m: Meta) => void }) {
+  const set = (patch: Partial<Meta>) => setMeta({ ...meta, ...patch });
+  const isFaq = meta.question.trim().length > 0;
+  return (
+    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 pt-4">
+      <div className="md:col-span-2">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Pregunta principal (opcional, para preguntas frecuentes)</label>
+        <input
+          value={meta.question}
+          onChange={(e) => set({ question: e.target.value })}
+          placeholder="Ej: ¿Cuánto cuesta el envío?"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        />
+      </div>
+      <div className="md:col-span-2">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Formas alternativas (una por línea)</label>
+        <textarea
+          value={meta.aliases}
+          onChange={(e) => set({ aliases: e.target.value })}
+          disabled={!isFaq}
+          placeholder={'costo del envio\nenvían a regiones'}
+          className="w-full h-20 px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-100"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+        <input
+          value={meta.category}
+          onChange={(e) => set({ category: e.target.value })}
+          placeholder="envios, horarios, marcas…"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Orden de presentación</label>
+        <input
+          type="number"
+          min={0}
+          max={9999}
+          value={meta.sort_order}
+          onChange={(e) => set({ sort_order: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={meta.active} onChange={(e) => set({ active: e.target.checked })} />
+          Activo (visible para el chat)
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={meta.generate_embedding} onChange={(e) => set({ generate_embedding: e.target.checked })} />
+          Generar embedding para búsqueda RAG (usa OpenAI)
+        </label>
+      </div>
+    </div>
+  );
 }
 
 export default function KnowledgeBasePage() {
@@ -19,6 +111,7 @@ export default function KnowledgeBasePage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState<number | null>(null);
   const [newContent, setNewContent] = useState('');
+  const [meta, setMeta] = useState<Meta>(EMPTY_META);
   const [isPopulating, setIsPopulating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
@@ -57,7 +150,7 @@ export default function KnowledgeBasePage() {
       const response = await fetch('/api/admin/knowledge-base', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent.trim() }),
+        body: JSON.stringify({ content: newContent.trim(), ...metaPayload(meta) }),
       });
 
       const data = await response.json();
@@ -67,6 +160,7 @@ export default function KnowledgeBasePage() {
 
       setSuccess('Fragmento agregado exitosamente');
       setNewContent('');
+      setMeta(EMPTY_META);
       setIsAdding(false);
       await loadItems();
       setTimeout(() => setSuccess(null), 3000);
@@ -86,7 +180,7 @@ export default function KnowledgeBasePage() {
       const response = await fetch('/api/admin/knowledge-base', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, content: newContent.trim() }),
+        body: JSON.stringify({ id, content: newContent.trim(), ...metaPayload(meta) }),
       });
 
       const data = await response.json();
@@ -96,6 +190,7 @@ export default function KnowledgeBasePage() {
 
       setSuccess('Fragmento actualizado exitosamente');
       setNewContent('');
+      setMeta(EMPTY_META);
       setIsEditing(null);
       await loadItems();
       setTimeout(() => setSuccess(null), 3000);
@@ -186,6 +281,14 @@ export default function KnowledgeBasePage() {
   const startEdit = (item: KnowledgeItem) => {
     setIsEditing(item.id);
     setNewContent(item.content);
+    setMeta({
+      question: item.question ?? '',
+      category: item.category ?? '',
+      aliases: (item.aliases ?? []).join('\n'),
+      active: item.active !== false,
+      sort_order: String(item.sort_order ?? 100),
+      generate_embedding: true,
+    });
     setIsAdding(false);
   };
 
@@ -193,6 +296,7 @@ export default function KnowledgeBasePage() {
     setIsEditing(null);
     setIsAdding(false);
     setNewContent('');
+    setMeta(EMPTY_META);
     setError(null);
   };
 
@@ -282,6 +386,7 @@ export default function KnowledgeBasePage() {
               placeholder="Ingresa el contenido del fragmento de conocimiento..."
               className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+            <MetaFields meta={meta} setMeta={setMeta} />
             <div className="mt-4 flex items-center justify-end space-x-3">
               <button
                 onClick={cancelEdit}
@@ -325,6 +430,7 @@ export default function KnowledgeBasePage() {
                           onChange={(e) => setNewContent(e.target.value)}
                           className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
+                        <MetaFields meta={meta} setMeta={setMeta} />
                         <div className="flex items-center justify-end space-x-3">
                           <button
                             onClick={cancelEdit}

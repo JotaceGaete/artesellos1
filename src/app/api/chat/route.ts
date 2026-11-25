@@ -2,6 +2,15 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { findRelevantContext } from '@/lib/vectorSearch';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
+import {
+  tryDirectAnswer,
+  formatProductResults,
+  hashChatClient,
+  aiQuotaKey,
+  consumeAiQuota,
+  getTrustedClientIp,
+  AI_QUOTA_MESSAGE,
+} from '@/lib/chatAnswerEngine';
 import { publicEnv } from '@/lib/env/public';
 
 // Cliente Supabase (para búsqueda de productos)
@@ -19,39 +28,27 @@ try {
   console.error('❌ Error al inicializar OpenAI:', error);
 }
 
+// Respuesta en el mismo formato de stream que el resto del chat.
+function streamResponse(content: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
 export const maxDuration = 30;
 
-// Función para formatear resultados de productos
-function formatProductResults(data: any[]) {
-  let respuesta = '\n\n📦 **Encontré estos productos:**\n\n';
-  
-  for (const item of data) {
-    respuesta += `### **${item.marca} ${item.modelo}** - ${item.color}\n\n`;
-    respuesta += `- **Medidas:** ${item.ancho_mm}x${item.alto_mm}mm\n`;
-    respuesta += `- **Categoría:** ${item.categoria}\n`;
-    
-    if (item.precio && item.precio > 0) {
-      respuesta += `- **Precio:** $${item.precio.toLocaleString('es-CL')}\n`;
-    }
-    
-    // Mostrar disponibilidad CON cantidades específicas
-    if (item.stock > 0) {
-      respuesta += `- **Disponibilidad online:** ✅ **${item.stock} unidades**\n`;
-    } else {
-      respuesta += `- **Disponibilidad online:** ⚠️ Consultar disponibilidad\n`;
-    }
-    
-    // Agregar imagen si existe
-    if (item.imagen_url) {
-      respuesta += `\n![${item.marca} ${item.modelo} ${item.color}](${item.imagen_url})\n`;
-    }
-    respuesta += '\n---\n\n';
-  }
-  
-  respuesta += '\n💬 **¿Necesitas más información sobre alguno de estos modelos?**\n\n';
-  respuesta += '_💡 Nota: Nuestra tienda física en el centro de Santiago cuenta con mayor stock. Para cantidades mayores o productos específicos, contáctanos directamente._';
-  return respuesta;
-}
 
 export async function POST(req: Request) {
   try {
@@ -116,9 +113,28 @@ INSTRUCCIONES:
     const lastMessage = messages[messages.length - 1]?.content || '';
     console.log('📨 Mensaje recibido:', lastMessage);
 
-    // RAG: Buscar contexto relevante en la base de conocimiento
-    let ragContext = '';
-    let hasRAGContext = false;
+    // Motor de respuestas directas (FAQ y catálogo): no usa OpenAI ni consume cuota.
+    let adminForDirect: ReturnType<typeof createSupabaseAdmin> | null = null;
+    try {
+      adminForDirect = createSupabaseAdmin();
+    } catch (adminError: any) {
+      console.error('[chat] Cliente admin no disponible para respuestas directas:', adminError?.message);
+    }
+    if (adminForDirect) {
+      const directAnswer = await tryDirectAnswer(adminForDirect, lastMessage);
+      if (directAnswer) return streamResponse(directAnswer);
+    }
+
+    // Cuota de consultas IA: solo se exige antes de una llamada a OpenAI.
+    const requireAiQuota = async (): Promise<boolean> => {
+      const secret = process.env.ADMIN_SESSION_SECRET;
+      if (!adminForDirect || !secret) return false; // fail-closed
+      const clientHash = await hashChatClient(getTrustedClientIp(req), secret);
+      return consumeAiQuota(adminForDirect, aiQuotaKey(clientHash));
+    };
+
+    // RAG: se carga solo en las ramas que usan OpenAI (después del control de cuota).
+    const loadRag = async (): Promise<void> => {
     try {
       // Usar umbral muy bajo (0.3) para capturar información relacionada
       const relevantContexts = await findRelevantContext(lastMessage, 0.3, 10);
@@ -330,6 +346,7 @@ INSTRUCCIONES:
       console.warn('⚠️ ADVERTENCIA: No hay contexto RAG disponible. El chatbot responderá con mensaje de fallback.');
     }
 
+    };
     // Normalizar variantes de marcas (corregir errores comunes)
     const normalizeBrand = (text: string): string => {
       let normalized = text.toLowerCase();
@@ -365,6 +382,8 @@ INSTRUCCIONES:
 
     console.log('🔍 ¿Buscar producto?', shouldSearchProduct);
 
+    let ragContext = '';
+    let hasRAGContext = false;
     let responseContent = '';
     let stockInfo = ''; // Para agregar al contexto
 
@@ -476,6 +495,8 @@ INSTRUCCIONES:
         }
       } else {
         // Si no encontramos productos, usar OpenAI con RAG
+        if (!(await requireAiQuota())) return streamResponse(AI_QUOTA_MESSAGE);
+        await loadRag();
         let enhancedSystemPrompt = '';
         
         if (hasRAGContext && ragContext) {
@@ -542,6 +563,8 @@ PREGUNTA DEL USUARIO: ${lastMessage}`;
       }
     } else {
       // Consulta normal con OpenAI y RAG
+      if (!(await requireAiQuota())) return streamResponse(AI_QUOTA_MESSAGE);
+      await loadRag();
       let enhancedSystemPrompt = '';
       
       if (hasRAGContext && ragContext) {

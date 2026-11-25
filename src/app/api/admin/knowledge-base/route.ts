@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import { insertKnowledge, populateExampleKnowledge } from '@/lib/populateKnowledgeBase';
 import { requireAdminSession } from '@/lib/adminSession';
+import { parseKnowledgeFields, toRow } from '@/lib/knowledgeFields';
+
+// Embedding solo para fragmentos RAG (acción del administrador, no del chat).
+async function embedText(text: string): Promise<number[]> {
+  const OpenAI = (await import('openai')).default;
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const r = await openai.embeddings.create({ model: 'text-embedding-3-small', input: text });
+  return r.data[0].embedding;
+}
 
 // GET - Listar fragmentos de conocimiento
 export async function GET(req: NextRequest) {
@@ -19,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await (supabase as any)
       .from('knowledge_base')
-      .select('id, content')
+      .select('id, content, category, question, aliases, active, sort_order')
       .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -80,16 +89,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!content || typeof content !== 'string' || !content.trim()) {
-      return NextResponse.json({ message: 'El campo "content" es requerido y debe ser un string no vacío' }, { status: 400 });
+    const parsed = parseKnowledgeFields(body as Record<string, unknown>);
+    if (parsed.ok === false) {
+      return NextResponse.json({ message: parsed.message }, { status: 400 });
     }
 
-    const result = await insertKnowledge(content.trim());
-    if (!result.success) {
+    const fields = parsed.value;
+    const embedding = fields.generate_embedding ? await embedText(fields.content) : null;
+    const supabase = createSupabaseAdmin();
+    const { data, error } = await (supabase as any)
+      .from('knowledge_base')
+      .insert({ ...toRow(fields), embedding })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      console.error('❌ Error al insertar fragmento:', error);
       return NextResponse.json({ success: false, message: 'Error al insertar fragmento de conocimiento' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, id: result.id, message: 'Fragmento de conocimiento insertado exitosamente' });
+    return NextResponse.json({ success: true, id: data.id, message: 'Fragmento de conocimiento insertado exitosamente' });
   } catch (err: any) {
     console.error('❌ Error en POST knowledge-base:', err);
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
@@ -103,31 +122,26 @@ export async function PUT(req: NextRequest) {
     if (authError) return authError;
 
     const body = await req.json().catch(() => ({}));
-    const { id, content } = body;
+    const { id } = body;
 
     if (!id || typeof id !== 'number') {
       return NextResponse.json({ message: 'El campo "id" es requerido y debe ser un número' }, { status: 400 });
     }
-    if (!content || typeof content !== 'string' || !content.trim()) {
-      return NextResponse.json({ message: 'El campo "content" es requerido y debe ser un string no vacío' }, { status: 400 });
+
+    const parsed = parseKnowledgeFields(body as Record<string, unknown>);
+    if (parsed.ok === false) {
+      return NextResponse.json({ message: parsed.message }, { status: 400 });
     }
 
-    const OpenAI = (await import('openai')).default;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const embeddingResponse = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: content.trim(),
-    });
-
-    const embedding = embeddingResponse.data[0].embedding;
+    const fields = parsed.value;
+    const embedding = fields.generate_embedding ? await embedText(fields.content) : null;
     const supabase = createSupabaseAdmin();
 
     const { data, error } = await (supabase as any)
       .from('knowledge_base')
-      .update({ content: content.trim(), embedding })
+      .update({ ...toRow(fields), embedding })
       .eq('id', id)
-      .select('id, content')
+      .select('id, content, category, question, aliases, active, sort_order')
       .single();
 
     if (error) {
