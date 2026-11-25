@@ -6,10 +6,11 @@ export const metadata: Metadata = {
   description: 'Consulta precios, modelos, envíos y horarios de Artesellos.',
 };
 
+// Altura = pantalla visible menos el encabezado sticky (5rem). Solo el área de mensajes se desplaza.
 export default function ConsultasPage() {
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <h1 className="text-2xl font-bold text-center text-gray-900 mb-6">Atención al cliente</h1>
+    <main className="h-[calc(100dvh-5rem)] overflow-hidden bg-gray-50 p-2 sm:p-4">
+      <h1 className="sr-only">Atención al cliente</h1>
       <ConsultasChat />
     </main>
   );
