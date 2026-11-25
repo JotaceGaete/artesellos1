@@ -157,13 +157,25 @@ export async function answerCatalogIntent(
   const { data, error } = await (admin as any)
     .from('stock_timbres')
     .select('marca, modelo, color, categoria, ancho_mm, alto_mm, precio, stock, imagen_url')
-    .ilike('marca', intent.brand)
+    .ilike('marca', `%${intent.brand}%`)
     .ilike('modelo', `%${intent.model}%`)
     .limit(30);
 
   if (error) throw error;
-  const rows = ((data ?? []) as StockRow[]).filter(r =>
-    new RegExp(`(^|[^0-9])${intent.model}($|[^0-9])`).test(String(r.modelo)),
+  // stock_timbres guarda texto con espacios sobrantes ("Shiny ") y números como texto: se normaliza aquí.
+  const normalized: StockRow[] = ((data ?? []) as any[]).map(r => ({
+    marca: String(r.marca ?? '').trim(),
+    modelo: String(r.modelo ?? '').trim(),
+    color: String(r.color ?? '').trim(),
+    categoria: String(r.categoria ?? '').trim(),
+    ancho_mm: Number(r.ancho_mm),
+    alto_mm: Number(r.alto_mm),
+    precio: Number(r.precio),
+    stock: Number(r.stock),
+    imagen_url: r.imagen_url ?? null,
+  }));
+  const rows = normalized.filter(r =>
+    new RegExp(`(^|[^0-9])${intent.model}($|[^0-9])`).test(r.modelo),
   );
 
   if (rows.length === 0) {

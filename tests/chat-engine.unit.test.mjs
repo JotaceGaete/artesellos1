@@ -153,3 +153,22 @@ test('toRow: alternativas vacías se guardan como null', () => {
   const r = fields.parseKnowledgeFields({ content: 'x' });
   assert.equal(fields.toRow(r.value).aliases, null);
 });
+
+test('answerCatalogIntent: encuentra marca con espacio sobrante y normaliza precio', async () => {
+  const { answerCatalogIntent } = engine;
+  const calls = [];
+  const chain = {
+    select() { return this; },
+    ilike(col, val) { calls.push([col, val]); return this; },
+    limit() { return Promise.resolve({ error: null, data: [{
+      marca: 'Shiny ', modelo: '722', color: 'Dorado', categoria: 'Bolsillo',
+      ancho_mm: 14, alto_mm: 38, precio: '16000.00', stock: 2, imagen_url: 'https://e.cl/x.jpg',
+    }] }); },
+  };
+  const admin = { from() { return chain; } };
+  const out = await answerCatalogIntent(admin, { brand: 'shiny', model: '722' });
+  assert.deepEqual(calls, [['marca', '%shiny%'], ['modelo', '%722%']]);
+  assert.match(out, /### \*\*Shiny 722\*\* - Dorado/);
+  assert.match(out, /Precio:\*\* \$16.?000/);
+  assert.match(out, /!\[Shiny 722 Dorado\]\(https:\/\/e\.cl\/x\.jpg\)/);
+});
