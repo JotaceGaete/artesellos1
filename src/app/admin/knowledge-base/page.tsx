@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { Plus, Trash2, Edit2, Database, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, Database, Loader2, CheckCircle2, XCircle, Search, X } from 'lucide-react';
+
+// Normaliza para buscar sin distinguir mayúsculas ni tildes.
+const normalizarBusqueda = (texto: string) =>
+  texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 interface KnowledgeItem {
   id: number;
@@ -148,6 +152,14 @@ function MetaFields({ meta, setMeta }: { meta: Meta; setMeta: (m: Meta) => void 
 
 export default function KnowledgeBasePage() {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [busqueda, setBusqueda] = useState('');
+  const terminoBusqueda = normalizarBusqueda(busqueda);
+  const filtrados = terminoBusqueda
+    ? items.filter((item) => {
+        const campos = [item.question ?? '', (item.aliases ?? []).join(' '), item.content ?? '', item.category ?? ''];
+        return campos.some((c) => normalizarBusqueda(c).includes(terminoBusqueda));
+      })
+    : items;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -460,6 +472,28 @@ export default function KnowledgeBasePage() {
           </div>
         )}
 
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar en preguntas, formas alternativas, respuestas o categoría…"
+            className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            aria-label="Buscar fragmentos"
+          />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
@@ -467,7 +501,12 @@ export default function KnowledgeBasePage() {
           </div>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            {items.length === 0 ? (
+            {items.length > 0 && filtrados.length === 0 ? (
+              <div className="text-center py-12">
+                <Search className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">Sin coincidencias para «{busqueda}»</p>
+              </div>
+            ) : items.length === 0 ? (
               <div className="text-center py-12">
                 <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600 mb-2">No hay fragmentos de conocimiento</p>
@@ -477,7 +516,7 @@ export default function KnowledgeBasePage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {items.map((item) => (
+                {filtrados.map((item) => (
                   <div key={item.id} className="p-6 hover:bg-gray-50">
                     {isEditing === item.id ? (
                       <div className="space-y-4">
@@ -543,7 +582,9 @@ export default function KnowledgeBasePage() {
 
         {items.length > 0 && (
           <div className="text-sm text-gray-600 text-center">
-            Total: {items.length} fragmento{items.length !== 1 ? 's' : ''}
+            {terminoBusqueda
+              ? `Mostrando ${filtrados.length} de ${items.length} fragmento${items.length !== 1 ? 's' : ''}`
+              : `Total: ${items.length} fragmento${items.length !== 1 ? 's' : ''}`}
           </div>
         )}
       </div>
