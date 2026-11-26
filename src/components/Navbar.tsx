@@ -29,6 +29,7 @@ export default function Navbar() {
     { href: '/', label: 'Inicio' },
     { href: '/productos', label: 'Productos' },
     { href: '/diseno-personalizado', label: 'Diseño Personalizado' },
+    { href: '/consultas', label: 'Atención al cliente' },
     { href: '/contacto', label: 'Contacto' }
   ]
 
