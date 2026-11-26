@@ -14,6 +14,14 @@ interface Message {
   footer?: string;
 }
 
+// Preguntas sugeridas del chat flotante: mismas que la página /consultas más la de envío del diseño.
+const SUGERENCIAS_FLOTANTE = [
+  '¿Cuánto se demoran?',
+  '¿Dónde están ubicados?',
+  '¿Cuál es el horario de atención?',
+  '¿Cómo envío el diseño?',
+];
+
 export default function ChatInterface() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,14 +80,19 @@ export default function ChatInterface() {
     }
   }, [isOpen, messages.length]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    sendText(input);
+  };
+
+  const sendText = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim()
+      content: text
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -309,6 +322,21 @@ export default function ChatInterface() {
             )}
 
             <div ref={messagesEndRef} />
+          </div>
+
+          {/* Preguntas sugeridas: una fila que se desliza en móviles */}
+          <div className="flex gap-2 overflow-x-auto whitespace-nowrap bg-white px-2 pt-2 flex-shrink-0">
+            {SUGERENCIAS_FLOTANTE.map(sug => (
+              <button
+                key={sug}
+                type="button"
+                onClick={() => sendText(sug)}
+                disabled={isLoading}
+                className="shrink-0 rounded-full border border-indigo-200 px-3 py-1.5 text-[14px] text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+              >
+                {sug}
+              </button>
+            ))}
           </div>
 
           {/* Input del Chat - CRÍTICO: Control manual del estado */}

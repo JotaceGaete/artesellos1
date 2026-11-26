@@ -14,6 +14,8 @@ import { usePathname } from 'next/navigation';
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
+  // En /consultas el chat de atención ya es la página completa: se oculta el flotante para no sobrecargar la pantalla.
+  const isConsultasRoute = pathname === '/consultas';
 
   if (isAdminRoute) {
     return (
@@ -38,7 +40,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
           <GlobalConversionCta />
           <Footer />
           <FloatingWhatsApp />
-          <ChatInterface />
+          {!isConsultasRoute && <ChatInterface />}
         </div>
       </FavoritesProvider>
     </CartProvider>
