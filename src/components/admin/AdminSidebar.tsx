@@ -7,6 +7,7 @@ const links = [
   { href: '/admin', label: '⊞ Dashboard', exact: true },
   { href: '/admin/productos', label: '📦 Productos' },
   { href: '/admin/productos/nuevo', label: '➕ Nuevo producto' },
+  { href: '/admin/categorias', label: '🗂 Categorías' },
   { href: '/admin/knowledge-base', label: '🧠 Conocimiento' },
 ];
 

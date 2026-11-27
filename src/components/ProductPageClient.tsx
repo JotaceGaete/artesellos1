@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useCategories } from '@/lib/useCategories';
+import { categoryLabelFrom } from '@/lib/categories';
 import { useEffect, useMemo, useState } from 'react';
 import ShippingEstimator from '@/components/ShippingEstimator';
 import ProductImageGallery from '@/components/ProductImageGallery';
@@ -21,6 +23,7 @@ export default function ProductPageClient({ product }: ProductPageClientProps) {
   // Color de tinta (UI)
   const [inkColor, setInkColor] = useState<'negro' | 'azul' | 'rojo' | 'verde' | 'morado'>('negro');
   const [colorVariants, setColorVariants] = useState<Array<{ id: string; color_slug: string; color_name: string; hex?: string; image_url?: string; stock_quantity: number; is_default: boolean }>>([])
+  const { categories: catalogCategories } = useCategories('public');
   const [selectedShell, setSelectedShell] = useState<string | null>(null)
   const [quantity, setQuantity] = useState<number>(1)
   
@@ -185,9 +188,13 @@ Total: ${formatPrice(totalPrice)}
         <div className="space-y-6">
           {/* Categories */}
           <div className="flex flex-wrap gap-2">
-            {(product.categories as any[]).map((category, index) => {
-              const categoryName = typeof category === 'string' ? category : category.name;
+            {(product.categories as any[]).filter(category => {
+              // Solo categorías visibles: una oculta llevaría a una página que redirige al catálogo.
+              const s = typeof category === 'string' ? category.toLowerCase() : category.slug;
+              return catalogCategories.some(c => c.slug === s);
+            }).map((category, index) => {
               const categorySlug = typeof category === 'string' ? category.toLowerCase() : category.slug;
+              const categoryName = categoryLabelFrom(catalogCategories, categorySlug);
               const categoryId = typeof category === 'string' ? category : category.id;
               
               return (

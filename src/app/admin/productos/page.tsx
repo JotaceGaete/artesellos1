@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { CATALOG_CATEGORIES, categoryLabel } from '@/lib/catalogCategories';
+import { useCategories } from '@/lib/useCategories';
+import { buildCategoryTree, categoryLabelFrom, expandCategorySlugs } from '@/lib/categories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
 import { parseImages } from '@/lib/productImages';
 
@@ -39,6 +40,7 @@ function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
 
 export default function AdminProductosPage() {
   const router = useRouter();
+  const { categories: allCategories } = useCategories('admin');
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,6 +69,12 @@ export default function AdminProductosPage() {
     }
   };
 
+  // Filtrar por una categoría incluye sus subcategorías.
+  const catSlugs = useMemo(
+    () => (catFilter ? expandCategorySlugs(allCategories, [catFilter]) : new Set<string>()),
+    [allCategories, catFilter],
+  );
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return products.filter(p => {
@@ -74,14 +82,14 @@ export default function AdminProductosPage() {
         p.name.toLowerCase().includes(q) ||
         p.slug.toLowerCase().includes(q) ||
         (p.categories || []).join(' ').includes(q);
-      const matchCat = !catFilter || (p.categories || []).includes(catFilter);
+      const matchCat = !catFilter || (p.categories || []).some(c => catSlugs.has(c));
       const matchStatus =
         statusFilter === 'all' ||
         (statusFilter === 'instock' && p.stock_status === 'instock') ||
         (statusFilter === 'outofstock' && p.stock_status === 'outofstock');
       return matchSearch && matchCat && matchStatus;
     });
-  }, [products, search, catFilter, statusFilter]);
+  }, [products, search, catFilter, statusFilter, catSlugs]);
 
   const handleToggleVisibility = async (p: AdminProduct) => {
     const newStatus = p.stock_status === 'instock' ? 'outofstock' : 'instock';
@@ -194,13 +202,13 @@ export default function AdminProductosPage() {
           >
             Todas las categorías
           </button>
-          {CATALOG_CATEGORIES.map(c => (
+          {buildCategoryTree(allCategories).flatMap(root => [root, ...root.children]).map(c => (
             <button
               key={c.slug}
               onClick={() => setCatFilter(prev => prev === c.slug ? '' : c.slug)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${catFilter === c.slug ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'}`}
             >
-              {c.label}
+              {c.parent_id ? `↳ ${c.name}` : c.name}{!c.is_active && ' (oculta)'}
             </button>
           ))}
           <div className="h-7 w-px bg-gray-200 self-center mx-1" />
@@ -288,7 +296,7 @@ export default function AdminProductosPage() {
                       <div className="flex flex-wrap gap-1">
                         {p.categories.map(cat => (
                           <span key={cat} className="px-1.5 py-0.5 text-xs bg-indigo-50 text-indigo-700 rounded">
-                            {categoryLabel(cat)}
+                            {categoryLabelFrom(allCategories, cat)}
                           </span>
                         ))}
                       </div>

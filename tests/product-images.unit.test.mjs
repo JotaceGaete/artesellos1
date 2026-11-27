@@ -21,6 +21,9 @@ const ALIASES = {
   '@/lib/adminSession': './mock-adminSession.mjs',
   '@/lib/productImages': './productImages.mjs',
   '@/lib/assetUrl': './assetUrl.mjs',
+  '@/lib/catalogCategories': './catalogCategories.mjs',
+  '@/lib/categories': './categories.mjs',
+  '@/lib/categoriesServer': './categoriesServer.mjs',
 };
 
 function transpile(relPath, outName) {
@@ -38,7 +41,14 @@ function transpile(relPath, outName) {
 
 // Supabase falso: query builder encadenable que registra cada escritura.
 function createFakeSupabase(initialRows) {
-  const db = { products: initialRows.map(r => ({ ...r })), writes: [] };
+  const db = {
+    products: initialRows.map(r => ({ ...r })),
+    categories: [
+      { id: 'cat-1', name: 'Timbres automáticos', slug: 'timbres-automaticos', description: null, parent_id: null, sort_order: 10, is_active: true },
+      { id: 'cat-2', name: 'Fechadores', slug: 'fechadores', description: null, parent_id: null, sort_order: 20, is_active: true },
+    ],
+    writes: [],
+  };
   let seq = 1;
   class Query {
     constructor(table) { this.table = table; this.filters = []; this.op = 'select'; this.cols = '*'; this.one = false; }
@@ -100,6 +110,9 @@ before(async () => {
   writeFileSync(`${OUT}/mock-adminSession.mjs`, `export async function requireAdminSession() { return null; }`);
 
   transpile('src/lib/productImages.ts', 'productImages.mjs');
+  transpile('src/lib/catalogCategories.ts', 'catalogCategories.mjs');
+  transpile('src/lib/categories.ts', 'categories.mjs');
+  transpile('src/lib/categoriesServer.ts', 'categoriesServer.mjs');
   transpile('src/lib/assetUrl.ts', 'assetUrl.mjs');
   transpile('src/lib/productAdapter.ts', 'productAdapter.mjs');
   transpile('src/app/api/admin/productos/route.ts', 'route-list.mjs');
@@ -393,6 +406,24 @@ describe('API admin: creación y duplicación', () => {
       assert.equal(row(slug).images, original(slug).images, 'el original no cambia');
     });
   }
+
+  test('POST con una categoría inexistente → 400 sin insertar', async () => {
+    const res = await listRoute.POST(jsonReq('POST', { name: 'Nuevo', slug: 'nuevo-cat', price: 1000, categories: ['no-existe'] }));
+    assert.equal(res.status, 400);
+    assert.equal(fake.db.writes.length, 0);
+  });
+
+  test('PUT con una categoría inexistente → 400 y no toca la base', async () => {
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('traxx-9130'), { categories: ['no-existe'] })), ctx('id-traxx-9130'));
+    assert.equal(res.status, 400);
+    assert.equal(fake.db.writes.length, 0);
+  });
+
+  test('PUT con una categoría existente (incluida una nueva) → 200', async () => {
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('traxx-9130'), { categories: ['timbres-automaticos', 'fechadores'] })), ctx('id-traxx-9130'));
+    assert.equal(res.status, 200);
+    assert.deepEqual(row('traxx-9130').categories, ['timbres-automaticos', 'fechadores']);
+  });
 
   test('POST sin images crea el producto con "[]"', async () => {
     const res = await listRoute.POST(jsonReq('POST', { name: 'Nuevo', slug: 'nuevo-x', price: 1000 }));

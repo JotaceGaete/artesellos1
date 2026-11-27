@@ -6,6 +6,8 @@ import { getProducts } from '@/lib/woocommerce';
 import ProductCard from '@/components/ProductCard';
 import { Product as ProductType } from '@/types/product';
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { useCategories } from '@/lib/useCategories';
+import { buildCategoryTree, categoryLabelFrom, expandCategorySlugs, productMatchesCategories } from '@/lib/categories';
 
 interface WooCommerceProduct {
   id: number;
@@ -73,13 +75,6 @@ const sortOptions = [
   { value: '-price', label: 'Precio: Mayor a Menor' },
 ];
 
-// Categorías del catálogo: label visible → value que coincide con products.categories[]
-const CATALOG_CATEGORIES = [
-  { id: 1, slug: 'automaticos', label: 'Automáticos' },
-  { id: 2, slug: 'bolsillo',    label: 'De bolsillo' },
-  { id: 3, slug: 'fechadores',  label: 'Fechadores' },
-  { id: 4, slug: 'redondos',    label: 'Redondos' },
-];
 
 // Marcas comerciales del catálogo. El filtro busca la marca dentro del nombre del producto.
 const brands = ['Shiny', 'Trodat', 'Colop', 'Traxx', 'Automatik'];
@@ -109,6 +104,8 @@ export default function ProductosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   // selectedCategories guarda slugs normalizados (ej: "automaticos", "fechadores")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // Categorías visibles desde la tabla categories (con respaldo en el código).
+  const { categories: catalogCategories } = useCategories('public');
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -134,7 +131,7 @@ export default function ProductosPage() {
     applyFilters();
     setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, allProducts]);
+  }, [searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, allProducts, catalogCategories]);
 
   // Fetch único: carga todos los productos y los guarda en allProducts
   const loadAllProducts = async () => {
@@ -156,9 +153,11 @@ export default function ProductosPage() {
     let filtered = [...allProducts];
 
     // Filtrar por categorías: ambos lados normalizados para comparar sin acentos ni case
+    // Una categoría principal incluye sus subcategorías.
     if (selectedCategories.length > 0) {
+      const wanted = expandCategorySlugs(catalogCategories, selectedCategories);
       filtered = filtered.filter(product =>
-        product.categories.some(cat => selectedCategories.includes(normalize(cat.name)))
+        productMatchesCategories((product.categories || []).map(cat => cat.slug || cat.name), wanted)
       );
     }
 
@@ -182,6 +181,7 @@ export default function ProductosPage() {
             product.description || '',
             product.short_description || '',
             ...(product.categories || []).map(c => c.name),
+            ...(product.categories || []).map(c => categoryLabelFrom(catalogCategories, c.slug || c.name)),
             ...(product.tags || []).map(t => t.name),
           ]
             .filter(Boolean)
@@ -215,7 +215,7 @@ export default function ProductosPage() {
 
     setProducts(filtered);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allProducts, searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy]);
+  }, [allProducts, searchTerm, selectedCategories, selectedBrands, minPrice, maxPrice, sortBy, catalogCategories]);
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev =>
@@ -317,8 +317,8 @@ export default function ProductosPage() {
         
         {categoryExpanded && (
           <div className="mt-4 space-y-3">
-            {CATALOG_CATEGORIES.map(category => (
-              <label key={category.slug} className="flex items-center gap-2 cursor-pointer group">
+            {buildCategoryTree(catalogCategories).flatMap(root => [root, ...root.children]).map(category => (
+              <label key={category.slug} className={`flex items-center gap-2 cursor-pointer group ${category.parent_id ? 'ml-6' : ''}`}>
                 <input
                   type="checkbox"
                   checked={selectedCategories.includes(category.slug)}
@@ -326,7 +326,7 @@ export default function ProductosPage() {
                   className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                  {category.label}
+                  {category.name}
                 </span>
               </label>
             ))}

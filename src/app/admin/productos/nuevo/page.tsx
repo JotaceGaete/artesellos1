@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
+import { useCategories } from '@/lib/useCategories';
+import { categoryLabelFrom } from '@/lib/categories';
+import CategoryCheckboxes from '@/components/admin/CategoryCheckboxes';
 import { resolveAssetUrl } from '@/lib/assetUrl';
 import ProductImageUploader from '@/components/admin/ProductImageUploader';
 
@@ -62,6 +64,7 @@ const TEXTAREA = `${INPUT} resize-none`;
 
 export default function NuevoProductoPage() {
   const router = useRouter();
+  const { categories: allCategories, loading: categoriesLoading } = useCategories('admin');
   const [form, setForm] = useState<FormData>(EMPTY);
   const [slugLocked, setSlugLocked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -191,19 +194,12 @@ export default function NuevoProductoPage() {
 
             {/* Categorías */}
             <Section title="Categorías">
-              <div className="flex flex-wrap gap-3">
-                {CATALOG_CATEGORIES.map(cat => (
-                  <label key={cat.slug} className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={form.categories.includes(cat.slug)}
-                      onChange={() => toggleCategory(cat.slug)}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-gray-700">{cat.label}</span>
-                  </label>
-                ))}
-              </div>
+              <CategoryCheckboxes
+                categories={allCategories}
+                selected={form.categories}
+                onToggle={toggleCategory}
+                loading={categoriesLoading}
+              />
               {form.categories.length === 0 && (
                 <p className="text-xs text-amber-600">Selecciona al menos una categoría.</p>
               )}
@@ -329,7 +325,7 @@ export default function NuevoProductoPage() {
                     <div className="flex flex-wrap gap-1">
                       {form.categories.map(c => (
                         <span key={c} className="px-2 py-0.5 text-xs bg-indigo-50 text-indigo-700 rounded-full">
-                          {CATALOG_CATEGORIES.find(x => x.slug === c)?.label ?? c}
+                          {categoryLabelFrom(allCategories, c)}
                         </span>
                       ))}
                     </div>

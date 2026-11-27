@@ -2,6 +2,8 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabaseServer'
+import { loadCategories } from '@/lib/categoriesServer';
+import { unknownCategorySlugs } from '@/lib/categories';
 import { requireAdminSession } from '@/lib/adminSession'
 import type { Json } from '@/types/database'
 import { normalizeProductImages, resolveImagesUpdate } from '@/lib/productImages'
@@ -73,6 +75,14 @@ export async function PUT(
     }
 
     const supabase = createSupabaseAdmin()
+
+    // Las categorías deben existir en la tabla categories (o en el respaldo del código).
+    const categorySlugs = Array.isArray(categories) ? categories.map((s: any) => String(s).trim()).filter(Boolean) : []
+    const { categories: knownCategories } = await loadCategories(supabase)
+    const unknown = unknownCategorySlugs(categorySlugs, knownCategories)
+    if (unknown.length > 0) {
+      return NextResponse.json({ error: `Categoría inexistente: ${unknown.join(', ')}` }, { status: 400 })
+    }
 
     // Verificar unicidad del slug
     const { data: existing } = await supabase

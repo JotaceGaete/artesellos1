@@ -19,7 +19,9 @@
     "seed:knowledge": "node ./scripts/seedKnowledge.mjs",
     "test:smoke": "node --test tests/admin-auth.smoke.mjs",
     "test:product-images": "node --test tests/product-images.unit.test.mjs",
-    "test:product-form-dirty": "node --test tests/product-form-dirty.unit.test.mjs"
+    "test:product-form-dirty": "node --test tests/product-form-dirty.unit.test.mjs",
+    "test:categories": "node --test tests/categories.unit.test.mjs",
+    "test:categories-db": "node --test tests/db/categorias.db.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

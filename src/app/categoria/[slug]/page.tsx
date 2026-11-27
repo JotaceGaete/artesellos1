@@ -4,8 +4,9 @@ export const runtime = 'edge';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { getProducts, getCategories } from '@/lib/woocommerce';
+import { useParams, useRouter } from 'next/navigation';
+import { getProducts } from '@/lib/woocommerce';
+import { expandCategorySlugs, productMatchesCategories, visibleCategories, type Category as DbCategory } from '@/lib/categories';
 import ProductCard from '@/components/ProductCard';
 import type { Product as ProductType } from '@/types/product';
 
@@ -35,16 +36,17 @@ interface Product {
 }
 
 interface Category {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  description?: string;
+  description?: string | null;
   count?: number;
 }
 
 export default function CategoryPage() {
   const params = useParams();
   const slug = (params?.slug as string) || '';
+  const router = useRouter();
   
   const [products, setProducts] = useState<ProductType[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
@@ -59,7 +61,7 @@ export default function CategoryPage() {
     if (slug) {
       loadCategoryAndProducts();
     }
-  }, [currentPage, slug]);
+  }, [slug]);
 
   // Función para convertir productos de WooCommerce al formato esperado por ProductCard
   const convertWooCommerceToProductType = (wooProduct: Product): ProductType => {
@@ -95,28 +97,30 @@ export default function CategoryPage() {
     try {
       setLoading(true);
 
-      // Cargar todas las categorías
-      const categoriesData = await getCategories();
-      setCategories(categoriesData || []);
+      // Categorías visibles desde la tabla categories (con respaldo en el código).
+      const res = await fetch('/api/categorias');
+      const data = res.ok ? await res.json() : { categories: [] };
+      const all: DbCategory[] = visibleCategories(data.categories ?? []);
+      setCategories(all.filter(c => !c.parent_id));
 
-      // Encontrar la categoría actual
-      const currentCategory = categoriesData?.find(cat => cat.slug === slug);
-      setCategory(currentCategory || null);
-
-      // Cargar productos de la categoría
-      const filters: any = {
-        per_page: productsPerPage,
-        page: currentPage,
-      };
-
-      if (currentCategory) {
-        filters.category = currentCategory.id;
+      const currentCategory = all.find(cat => cat.slug === slug);
+      if (!currentCategory) {
+        // Categoría inexistente u oculta: se envía al catálogo completo.
+        router.replace('/productos');
+        return;
       }
+      setCategory(currentCategory);
 
-      const result = await getProducts(filters);
-      const convertedProducts = (result.products || []).map(convertWooCommerceToProductType);
+      // Todos los productos de la categoría y sus subcategorías; la página pagina en el cliente.
+      const wanted = expandCategorySlugs(all, [currentCategory.slug]);
+      const result = await getProducts({ per_page: 200, page: 1 });
+      const inCategory = (result.products || []).filter((p: any) =>
+        productMatchesCategories((p.categories || []).map((c: any) => (typeof c === 'string' ? c : c.slug || c.name)), wanted)
+      );
+      const convertedProducts = inCategory.map(convertWooCommerceToProductType);
       setProducts(convertedProducts);
-      setTotalPages(Math.ceil((result.products || []).length / productsPerPage));
+      setCurrentPage(1);
+      setTotalPages(Math.max(1, Math.ceil(convertedProducts.length / productsPerPage)));
 
     } catch (error) {
       console.error('Error loading category products:', error);
@@ -194,7 +198,7 @@ export default function CategoryPage() {
           {category?.name || formatCategoryName(slug)}
         </h1>
         <p className="text-lg text-gray-600 max-w-3xl">
-          {getCategoryDescription(slug)}
+          {category?.description || getCategoryDescription(slug)}
         </p>
       </div>
 
