@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Json } from '@/types/database';
 import { requireAdminSession } from '@/lib/adminSession';
+import { normalizeProductImages, parseImagesInput, serializeImagesForDb } from '@/lib/productImages';
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
         .limit(200);
 
       if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-      return NextResponse.json({ products: products || [] });
+      // products.images es TEXT en la base: se normaliza a string[] para el frontend.
+      return NextResponse.json({ products: (products || []).map(normalizeProductImages) });
     }
 
     return NextResponse.json({ message: 'Acción no válida' }, { status: 400 });
@@ -43,12 +45,22 @@ export async function POST(req: NextRequest) {
     } = body as {
       name: string; slug: string; price: number; regular_price?: number;
       description?: string; short_description?: string;
-      images?: string[]; categories?: string[]; tags?: string[];
+      images?: unknown; categories?: string[]; tags?: string[];
       featured?: boolean; stock_status?: string; stock_quantity?: number;
     };
 
     if (!name || !slug || !Number.isFinite(price)) {
       return NextResponse.json({ message: 'Datos inválidos (nombre, slug, precio requeridos)' }, { status: 400 });
+    }
+
+    // images: ausente = producto sin imágenes; presente = debe ser válido (nunca se descarta en silencio).
+    let imagesList: string[] = [];
+    if (images !== undefined && images !== null) {
+      const parsedImages = parseImagesInput(images);
+      if ('error' in parsedImages) {
+        return NextResponse.json({ message: parsedImages.error }, { status: 400 });
+      }
+      imagesList = parsedImages.images;
     }
 
     const supabase = createSupabaseAdmin();
@@ -75,7 +87,8 @@ export async function POST(req: NextRequest) {
       on_sale: regularPriceNum > priceNum,
       description: description ?? '',
       short_description: short_description ?? '',
-      images: (Array.isArray(images) ? images.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
+      // Columna TEXT: se guarda el array serializado.
+      images: serializeImagesForDb(imagesList),
       categories: (Array.isArray(categories) ? categories.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
       tags: (Array.isArray(tags) ? tags.map((s: any) => String(s).trim()).filter(Boolean) : []) as Json,
       featured: Boolean(featured),
@@ -91,7 +104,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, product: data });
+    return NextResponse.json({ ok: true, product: normalizeProductImages(data) });
   } catch (err: any) {
     return NextResponse.json({ message: err?.message || 'Error interno' }, { status: 500 });
   }

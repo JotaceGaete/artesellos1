@@ -1,0 +1,226 @@
+{
+  "_nota": "Valores reales de products.images (columna TEXT) leídos de Supabase el 2026-11-27, solo lectura. 'expected' es la lista normalizada esperada.",
+  "rows": [
+    {
+      "slug": "shiny-R-532",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788893460731-8e7rwbhgtma.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788893460731-8e7rwbhgtma.jpg"
+      ]
+    },
+    {
+      "slug": "automatik-953",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788892618995-26fj25k3bvo.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788892618995-26fj25k3bvo.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-832",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788892219998-ypcv879irvl.webp\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788892219998-ypcv879irvl.webp"
+      ]
+    },
+    {
+      "slug": "traxx-9016",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788891853153-20qh2ezrhtt.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788891853153-20qh2ezrhtt.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-s-841",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788890863193-s3wjjsl40ka.webp\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788890863193-s3wjjsl40ka.webp"
+      ]
+    },
+    {
+      "slug": "automatik-945",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788890586643-f1jiorqz8s.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788890586643-f1jiorqz8s.jpg"
+      ]
+    },
+    {
+      "slug": "AUTOMATIK-940a",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788883992600-2aozftknrbs.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1788883992600-2aozftknrbs.jpg"
+      ]
+    },
+    {
+      "slug": "trodat-4915",
+      "stock_status": "instock",
+      "images": "[\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554293651-8x8b9ivqke.jpg\",\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554294139-ry6iio57uk.jpg\",\"https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554294615-mxtwjtkrhub.jpg\"]",
+      "expected": [
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554293651-8x8b9ivqke.jpg",
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554294139-ry6iio57uk.jpg",
+        "https://ueannxyewstuptivnzjf.supabase.co/storage/v1/object/public/product-images/1779554294615-mxtwjtkrhub.jpg"
+      ]
+    },
+    {
+      "slug": "trodat-printy-3911",
+      "stock_status": "instock",
+      "images": "https://media.artesellos.cl/printy-trodat-3911-placa-de-38x14-mm.webp",
+      "expected": [
+        "https://media.artesellos.cl/printy-trodat-3911-placa-de-38x14-mm.webp"
+      ]
+    },
+    {
+      "slug": "traxx-9130",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/9130_BLACK.jpg\",\"https://media.artesellos.cl/TRAXX-9130.jpg\"]",
+      "expected": [
+        "https://media.artesellos.cl/9130_BLACK.jpg",
+        "https://media.artesellos.cl/TRAXX-9130.jpg"
+      ]
+    },
+    {
+      "slug": "traxx-9045",
+      "stock_status": "instock",
+      "images": "https://media.artesellos.cl/modelos/Traxx%209045-redondo.jpg",
+      "expected": [
+        "https://media.artesellos.cl/modelos/Traxx%209045-redondo.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-837-fechador",
+      "stock_status": "instock",
+      "images": "[\"https://pub-c6c53669f71e4f6eb1e663393472f32c.r2.dev/modelos/Shiny-837D.webp\"]",
+      "expected": [
+        "https://pub-c6c53669f71e4f6eb1e663393472f32c.r2.dev/modelos/Shiny-837D.webp"
+      ]
+    },
+    {
+      "slug": "shiny-833",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/Shiny833/shiny-833.png\",\"https://media.artesellos.cl/Shiny833/Shiny-833-con-modelo-de-impresion.png\"]",
+      "expected": [
+        "https://media.artesellos.cl/Shiny833/shiny-833.png",
+        "https://media.artesellos.cl/Shiny833/Shiny-833-con-modelo-de-impresion.png"
+      ]
+    },
+    {
+      "slug": "trodat-9511",
+      "stock_status": "instock",
+      "images": "[\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-rojo.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/34100_base.jpg\",\r\n  \"https://media.artesellos.cl/Trodat%209511/34107_base.jpg\",\r\n  \"https://media.artesellos.cl/Trodat%209511/36157_base.jpg\",\r\n  \"https://media.artesellos.cl/Trodat%209511/382029_base.jpg\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511%20gris.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511%20turquesa.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511--azul-cielo.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-azul.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-base.png\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-blanco-nieve.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-crema.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-fucsia.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-rojo.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-rosa.jfif\",\r\n  \"https://media.artesellos.cl/Trodat%209511/trodat-9511-verde-claro%20(2).jfif\"\r\n]",
+      "expected": [
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-rojo.jfif",
+        "https://media.artesellos.cl/Trodat%209511/34100_base.jpg",
+        "https://media.artesellos.cl/Trodat%209511/34107_base.jpg",
+        "https://media.artesellos.cl/Trodat%209511/36157_base.jpg",
+        "https://media.artesellos.cl/Trodat%209511/382029_base.jpg",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511%20gris.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511%20turquesa.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511--azul-cielo.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-azul.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-base.png",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-blanco-nieve.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-crema.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-fucsia.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-rojo.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-rosa.jfif",
+        "https://media.artesellos.cl/Trodat%209511/trodat-9511-verde-claro%20(2).jfif"
+      ]
+    },
+    {
+      "slug": "automatik-913",
+      "stock_status": "instock",
+      "images": " [\r\n  \"https://media.artesellos.cl/automatik-913.png\",\r\n  \"https://media.artesellos.cl/modelos/Automatik-913-2.jpg\"\r\n]    ",
+      "expected": [
+        "https://media.artesellos.cl/automatik-913.png",
+        "https://media.artesellos.cl/modelos/Automatik-913-2.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-829-fechador",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/Shiny-829/shiny-829-fechador.png\"]",
+      "expected": [
+        "https://media.artesellos.cl/Shiny-829/shiny-829-fechador.png"
+      ]
+    },
+    {
+      "slug": "trodat-4912",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/Trodat4912/trodat-4912-negro.jpg\", \"https://media.artesellos.cl/Trodat4912/4912-cubierta.jpg\", \"https://media.artesellos.cl/Trodat4912/capacidad-lineas-4912.jpg\", \"https://media.artesellos.cl/Trodat4912/trodat-4912-mecanismo.jpg\", \"https://media.artesellos.cl/Trodat4912/trodat-4912-rojo.jpg\", \"https://media.artesellos.cl/Trodat4912/trodat-4912-seguridad.jpg\",\"https://media.artesellos.cl/Trodat4912/modelo-timbre-tinta-roja.jpg\",\"https://media.artesellos.cl/Trodat4912/Modelo-4912-Dentista.jpg\"]",
+      "expected": [
+        "https://media.artesellos.cl/Trodat4912/trodat-4912-negro.jpg",
+        "https://media.artesellos.cl/Trodat4912/4912-cubierta.jpg",
+        "https://media.artesellos.cl/Trodat4912/capacidad-lineas-4912.jpg",
+        "https://media.artesellos.cl/Trodat4912/trodat-4912-mecanismo.jpg",
+        "https://media.artesellos.cl/Trodat4912/trodat-4912-rojo.jpg",
+        "https://media.artesellos.cl/Trodat4912/trodat-4912-seguridad.jpg",
+        "https://media.artesellos.cl/Trodat4912/modelo-timbre-tinta-roja.jpg",
+        "https://media.artesellos.cl/Trodat4912/Modelo-4912-Dentista.jpg"
+      ]
+    },
+    {
+      "slug": "traxx-9011",
+      "stock_status": "instock",
+      "images": "[\n  \"https://media.artesellos.cl/modelos/shiny-9011-rr.png\",\n  \"https://media.artesellos.cl/modelos/shiy-9011-nn.png\"\n]",
+      "expected": [
+        "https://media.artesellos.cl/modelos/shiny-9011-rr.png",
+        "https://media.artesellos.cl/modelos/shiy-9011-nn.png"
+      ]
+    },
+    {
+      "slug": "shiny-915-fechador",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/modelos/915.png\",\"https://media.artesellos.cl/modelos/shiny-e-915-1.jpg\"]",
+      "expected": [
+        "https://media.artesellos.cl/modelos/915.png",
+        "https://media.artesellos.cl/modelos/shiny-e-915-1.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-842",
+      "stock_status": "outofstock",
+      "images": "[\"[\\n  \\\"https://media.artesellos.cl/Shiny%20842/shiny-842-amarillo.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-azul.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-fucsia.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-negro.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-rojo.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-verde-claro.jpg\\\"\",\"\\\"https://media.artesellos.cl/Shiny%20842/shiny-842-violeta.jpg\\\"\\n]\"]",
+      "expected": [
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-amarillo.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-azul.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-fucsia.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-negro.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-rojo.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-verde-claro.jpg",
+        "https://media.artesellos.cl/Shiny%20842/shiny-842-violeta.jpg"
+      ]
+    },
+    {
+      "slug": "shiny-s-723",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/modelos/723-azul-tr.png\",\"https://media.artesellos.cl/modelos/723-rosado.png\",\"https://media.artesellos.cl/modelos/shiny-723-negro.png\",\"https://media.artesellos.cl/modelos/s-723-colores.png\"]",
+      "expected": [
+        "https://media.artesellos.cl/modelos/723-azul-tr.png",
+        "https://media.artesellos.cl/modelos/723-rosado.png",
+        "https://media.artesellos.cl/modelos/shiny-723-negro.png",
+        "https://media.artesellos.cl/modelos/s-723-colores.png"
+      ]
+    },
+    {
+      "slug": "shiny-s-722",
+      "stock_status": "instock",
+      "images": "[\"https://media.artesellos.cl/modelos/722-azul-tr.png\",\"https://media.artesellos.cl/modelos/722-dorado.png\",\"https://media.artesellos.cl/modelos/722-rojo-tr.png\",\"https://media.artesellos.cl/modelos/722-verde-claro.png\",\"https://media.artesellos.cl/modelos/722-lila.png\",\"https://media.artesellos.cl/modelos/722-rosa.png\",\"https://media.artesellos.cl/modelos/722-violeta.png\",\"https://media.artesellos.cl/modelos/722-negro.png\"]",
+      "expected": [
+        "https://media.artesellos.cl/modelos/722-azul-tr.png",
+        "https://media.artesellos.cl/modelos/722-dorado.png",
+        "https://media.artesellos.cl/modelos/722-rojo-tr.png",
+        "https://media.artesellos.cl/modelos/722-verde-claro.png",
+        "https://media.artesellos.cl/modelos/722-lila.png",
+        "https://media.artesellos.cl/modelos/722-rosa.png",
+        "https://media.artesellos.cl/modelos/722-violeta.png",
+        "https://media.artesellos.cl/modelos/722-negro.png"
+      ]
+    }
+  ]
+}

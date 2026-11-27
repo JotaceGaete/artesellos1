@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { CATALOG_CATEGORIES, categoryLabel } from '@/lib/catalogCategories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
+import { parseImages } from '@/lib/productImages';
 
 interface AdminProduct {
   id: string;
@@ -86,17 +87,11 @@ export default function AdminProductosPage() {
     const newStatus = p.stock_status === 'instock' ? 'outofstock' : 'instock';
     setProcessing(p.id);
     try {
+      // Solo cambia la visibilidad: no reenvía imágenes ni otros campos.
       const res = await fetch(`/api/admin/productos/${p.id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: p.name, slug: p.slug, price: p.price,
-          regular_price: p.regular_price,
-          description: p.description, short_description: p.short_description,
-          images: p.images, stock_quantity: p.stock_quantity,
-          stock_status: newStatus,
-          categories: p.categories, featured: p.featured, tags: p.tags,
-        }),
+        body: JSON.stringify({ stock_status: newStatus }),
       });
       if (!res.ok) throw new Error();
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, stock_status: newStatus } : x));
@@ -122,7 +117,7 @@ export default function AdminProductosPage() {
           regular_price: p.regular_price,
           description: p.description,
           short_description: p.short_description,
-          images: p.images,
+          images: parseImages(p.images),
           categories: p.categories,
           tags: p.tags ?? [],
         }),
@@ -244,8 +239,10 @@ export default function AdminProductosPage() {
         {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map(p => {
-              const thumb = resolveAssetUrl(Array.isArray(p.images) ? p.images[0] : undefined);
-              const hasImage = Array.isArray(p.images) && p.images.length > 0;
+              // La API ya entrega images normalizado (string[]); parseImages es defensa adicional.
+              const images = parseImages(p.images);
+              const thumb = resolveAssetUrl(images[0]);
+              const hasImage = images.length > 0;
               const isHidden = p.stock_status === 'outofstock';
               const busy = processing === p.id;
               return (
