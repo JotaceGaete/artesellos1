@@ -1,31 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
+import ArticleLayout from "@/components/seo/ArticleLayout";
+import { getPost, postMetadata } from "@/lib/blog";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = postMetadata("tipos-de-timbres", {
   title: "Tipos de timbres: manual, automático y sellos de goma",
   description:
     "Comparación de tipos de timbres en Chile: sellos manuales, automáticos, fechadores y buenas prácticas para elegir bien.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/tipos-de-timbres" },
-};
+});
 
 export default function BlogTiposDeTimbresPage() {
   return (
-    <SeoProse>
-      <p className="text-sm font-medium text-indigo-600">
-        <Link href="/blog">← Volver al blog</Link>
-      </p>
-      <h1 className="!mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
-        Tipos de timbres: guía comparativa para decidir con criterio
-      </h1>
-      <p className="text-lg text-gray-600">
-        Entiende diferencias reales entre formatos, no solo nombres comerciales, y elige según
-        volumen, espacio y tipo de documento.
-      </p>
+    <ArticleLayout
+      post={getPost("tipos-de-timbres")}
+      heading="Tipos de timbres: guía comparativa para decidir con criterio"
+      lead="Entiende diferencias reales entre formatos, no solo nombres comerciales, y elige según volumen, espacio y tipo de documento."
+      ctaTitle="¿Dudas entre tipos de timbre?"
+      ctaMessage="Hola, no sé qué tipo de timbre me conviene. ¿Me ayudan a elegir?"
+    >
 
-      <h2>Sellos manuales con almohadilla: versátiles y económicos</h2>
+      <h2 id="sellos-manuales-con-almohadilla-versatiles">Sellos manuales con almohadilla: versátiles y económicos</h2>
       <p>
         El timbre clásico montado en madera o soporte con mango, usado junto a una almohadilla de
         tinta, sigue siendo el más flexible para quienes estampan ocasionalmente o sobre materiales
@@ -46,7 +40,7 @@ export default function BlogTiposDeTimbresPage() {
         marca en <Link href="/sellos-para-negocios">sellos para negocios</Link>.
       </p>
 
-      <h2>Timbres automáticos y preentintados: ritmo sostenido</h2>
+      <h2 id="timbres-automaticos-y-preentintados-ritmo-sostenido">Timbres automáticos y preentintados: ritmo sostenido</h2>
       <p>
         Los <strong>timbres automáticos</strong> integran la tinta en el cuerpo y automatizan el
         contacto con el papel, logrando ciclos más rápidos y menor variación entre impresión e
@@ -66,7 +60,7 @@ export default function BlogTiposDeTimbresPage() {
         entintado prematuramente.
       </p>
 
-      <h2>Fechadores, numeradores y sellos de estado</h2>
+      <h2 id="fechadores-numeradores-y-sellos-de-estado">Fechadores, numeradores y sellos de estado</h2>
       <p>
         No todo es “logo + texto fijo”. Los fechadores permiten marcar día/mes/año en entornos donde
         la fecha es variable; los numeradores asignan correlativos en tickets o documentos internos.
@@ -86,7 +80,7 @@ export default function BlogTiposDeTimbresPage() {
         ayuda a ordenar requisitos antes de comprar varios formatos.
       </p>
 
-      <h2>Materiales del grabado y calidad de impresión</h2>
+      <h2 id="materiales-del-grabado-y-calidad">Materiales del grabado y calidad de impresión</h2>
       <p>
         Más allá del tipo de mango, la calidad del grabado en goma define la vida útil y la nitidez.
         Un trazo demasiado fino puede romperse con el uso; un exceso de detalle en áreas pequeñas se
@@ -106,7 +100,7 @@ export default function BlogTiposDeTimbresPage() {
         reduce pérdidas.
       </p>
 
-      <h2>Tabla mental de decisión rápida</h2>
+      <h2 id="tabla-mental-de-decision-rapida">Tabla mental de decisión rápida</h2>
       <p>
         Si estampas pocas veces al día y valoras flexibilidad de color, prioriza manual + almohadilla.
         Si estampas muchas veces y buscas uniformidad rápida, evalúa automático. Si necesitas fechas o
@@ -120,13 +114,6 @@ export default function BlogTiposDeTimbresPage() {
         tu caso: traduciremos estas categorías a una propuesta concreta para tu taller, oficina o
         tienda.
       </p>
-
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">¿Dudas entre tipos de timbre?</p>
-        <WhatsAppButton message="Hola, no sé qué tipo de timbre me conviene. ¿Me ayudan a elegir?">
-          Consultar por WhatsApp
-        </WhatsAppButton>
-      </div>
-    </SeoProse>
+    </ArticleLayout>
   );
 }

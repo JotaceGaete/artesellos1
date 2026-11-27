@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoImagePlaceholder from "@/components/seo/SeoImagePlaceholder";
+import StampCover from "@/components/seo/StampCover";
+import CtaBanner from "@/components/seo/CtaBanner";
+import ProductPicks from "@/components/seo/ProductPicks";
+import { PRODUCTS } from "@/lib/blog";
 import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Timbres personalizados de goma en Chile",
@@ -15,14 +17,21 @@ export const metadata: Metadata = {
 export default function TimbresPersonalizadosPage() {
   return (
     <SeoProse>
-      <h1 className="!mb-6 text-3xl font-bold text-gray-900 sm:text-4xl">
+      <h1 className="!mb-6 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
         Timbres personalizados de goma: diseño, calidad y versatilidad
       </h1>
-      <p className="text-lg text-gray-600">
+      <p className="text-lg leading-relaxed text-slate-600 sm:text-xl">
         Fabricación de sellos de caucho a medida para que tu marca se vea igual de bien en el papel
         que en pantalla.
       </p>
-      <SeoImagePlaceholder label="Ejemplo de timbre personalizado con logo" />
+      <figure className="not-prose my-10 overflow-hidden rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
+        <StampCover
+          title="Ilustración de un timbre personalizado con logo"
+          lines={["TU LOGO", "HECHO A MANO"]}
+          shape="round"
+          tone="rose"
+        />
+      </figure>
 
       <h2>Qué son los timbres personalizados y cuándo convienen</h2>
       <p>
@@ -86,12 +95,12 @@ export default function TimbresPersonalizadosPage() {
         antes de decidir.
       </p>
 
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">¿Listo para tu timbre a medida?</p>
-        <WhatsAppButton message="Hola, quiero cotizar timbres personalizados de goma.">
-          Cotizar por WhatsApp
-        </WhatsAppButton>
-      </div>
+      <ProductPicks products={[PRODUCTS.traxx9045, PRODUCTS.shinyS723, PRODUCTS.automatik913]} />
+
+      <CtaBanner
+        title="¿Listo para tu timbre a medida?"
+        message="Hola, quiero cotizar timbres personalizados de goma."
+      />
     </SeoProse>
   );
 }
