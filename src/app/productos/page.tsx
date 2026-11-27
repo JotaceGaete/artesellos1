@@ -81,8 +81,8 @@ const CATALOG_CATEGORIES = [
   { id: 4, slug: 'redondos',    label: 'Redondos' },
 ];
 
-// Marcas ficticias (reemplazar con datos reales de Supabase)
-const brands = ['Shiny', 'Trodat', 'Colop', 'Brother', 'Pronto'];
+// Marcas comerciales del catálogo. El filtro busca la marca dentro del nombre del producto.
+const brands = ['Shiny', 'Trodat', 'Colop', 'Traxx', 'Automatik'];
 
 // Preposiciones y artículos que no aportan al filtro
 const STOP_WORDS = new Set([
