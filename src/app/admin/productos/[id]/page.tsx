@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
+import { parseImages } from '@/lib/productImages';
 import ProductImageUploader from '@/components/admin/ProductImageUploader';
 
 const toSlug = (str: string) =>
@@ -80,6 +81,8 @@ export default function EditProductoPage() {
   const [duplicating, setDuplicating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // Imágenes tal como se cargaron; si no cambian, el PUT omite `images` y el servidor las conserva.
+  const [initialImages, setInitialImages] = useState<string[] | null>(null);
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type });
@@ -106,6 +109,8 @@ export default function EditProductoPage() {
         const res = await fetch(`/api/admin/productos/${productId}`);
         if (!res.ok) { setNotFound(true); return; }
         const data = await res.json();
+        const loadedImages = parseImages(data.images);
+        setInitialImages(loadedImages);
 
         setForm({
           name: data.name ?? '',
@@ -116,7 +121,7 @@ export default function EditProductoPage() {
           description: data.description ?? '',
           categories: Array.isArray(data.categories) ? data.categories : [],
           tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
-          images: Array.isArray(data.images) ? data.images : [],
+          images: loadedImages,
           featured: Boolean(data.featured),
           stock_status: data.stock_status === 'outofstock' ? 'outofstock' : 'instock',
           stock_quantity: data.stock_quantity?.toString() ?? '0',
@@ -131,19 +136,32 @@ export default function EditProductoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const imagesChanged =
+      initialImages === null || JSON.stringify(initialImages) !== JSON.stringify(form.images);
+    const clearingAll = imagesChanged && form.images.length === 0;
+    if (clearingAll && !confirm('¿Guardar el producto sin ninguna imagen? Se quitarán todas sus fotos.')) {
+      return;
+    }
+    const imagesPayload = !imagesChanged
+      ? {}
+      : clearingAll
+        ? { images: [], clear_images: true }
+        : { images: form.images };
+
     setSubmitting(true);
     try {
       const res = await fetch(`/api/admin/productos/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...imagesPayload,
           name: form.name.trim(),
           slug: form.slug.trim(),
           price: Number(form.price.replace(/\D/g, '')),
           regular_price: Number((form.regular_price || form.price).replace(/\D/g, '')),
           description: form.description.trim(),
           short_description: form.short_description.trim(),
-          images: form.images,
           categories: form.categories,
           tags: form.tags.split(',').map(s => s.trim()).filter(Boolean),
           featured: form.featured,
@@ -153,6 +171,7 @@ export default function EditProductoPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || 'Error al guardar');
+      setInitialImages(parseImages(data.product?.images ?? form.images));
       showToast('Cambios guardados');
     } catch (err: any) {
       showToast(err.message, 'err');

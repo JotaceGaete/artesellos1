@@ -17,7 +17,8 @@
     "pages:build": "npx @cloudflare/next-on-pages",
     "deploy": "npm run pages:build && wrangler pages deploy",
     "seed:knowledge": "node ./scripts/seedKnowledge.mjs",
-    "test:smoke": "node --test tests/admin-auth.smoke.mjs"
+    "test:smoke": "node --test tests/admin-auth.smoke.mjs",
+    "test:product-images": "node --test tests/product-images.unit.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
