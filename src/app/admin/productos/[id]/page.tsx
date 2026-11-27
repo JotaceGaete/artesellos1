@@ -6,12 +6,15 @@ import Link from 'next/link';
 import { useCategories } from '@/lib/useCategories';
 import { categoryLabelFrom } from '@/lib/categories';
 import CategoryCheckboxes from '@/components/admin/CategoryCheckboxes';
+import ProductVariantsEditor from '@/components/admin/ProductVariantsEditor';
+import { variantToFormRow, normalizeVariantRows, type VariantFormRow } from '@/lib/productVariants';
 import { resolveAssetUrl } from '@/lib/assetUrl';
 import { parseImages } from '@/lib/productImages';
 import ProductImageUploader from '@/components/admin/ProductImageUploader';
 import {
   normalizeProductForm,
   isProductFormDirty,
+  variantsDirty,
   saveButtonState,
   SAVE_BUTTON_TONE_CLASSES,
   type NormalizedProductForm,
@@ -36,6 +39,7 @@ interface FormData {
   featured: boolean;
   stock_status: 'instock' | 'outofstock';
   stock_quantity: string;
+  variants: VariantFormRow[];
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -82,7 +86,10 @@ export default function EditProductoPage() {
     categories: [], tags: '',
     images: [],
     featured: false, stock_status: 'instock', stock_quantity: '10',
+    variants: [],
   });
+  // updated_at del producto al cargarlo o guardarlo: control de concurrencia.
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [slugLocked, setSlugLocked] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -144,7 +151,9 @@ export default function EditProductoPage() {
           featured: Boolean(data.featured),
           stock_status: data.stock_status === 'outofstock' ? 'outofstock' : 'instock',
           stock_quantity: data.stock_quantity?.toString() ?? '0',
+          variants: Array.isArray(data.variants) ? data.variants.map(variantToFormRow) : [],
         };
+        setUpdatedAt(data.updated_at ?? null);
         // La carga inicial no es una modificación: formulario y copia guardada parten iguales.
         setForm(loaded);
         setSaved(normalizeProductForm(loaded));
@@ -174,6 +183,10 @@ export default function EditProductoPage() {
         ? { images: [], clear_images: true }
         : { images: form.images };
 
+    // Los colores solo se envían si cambiaron: editar el producto no recalcula su stock.
+    const sendVariants = variantsDirty(form, saved);
+    const sentVariants = form.variants;
+
     savingRef.current = true;
     setSubmitting(true);
     setJustSaved(false);
@@ -194,13 +207,25 @@ export default function EditProductoPage() {
           featured: form.featured,
           stock_status: form.stock_status,
           stock_quantity: Number(form.stock_quantity) || 0,
+          expected_updated_at: updatedAt,
+          ...(sendVariants ? { variants: normalizeVariantRows(form.variants).map(({ id, ...v }) => (id ? { id, ...v } : v)) } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || 'Error al guardar');
       // Lo enviado pasa a ser la nueva referencia. Si se editó algo durante el guardado,
       // esa edición sigue contando como cambio pendiente.
-      setSaved(snapshot);
+      const savedProduct = data.product ?? {};
+      if (savedProduct.updated_at) setUpdatedAt(savedProduct.updated_at);
+      const savedStock = savedProduct.stock_quantity != null ? String(savedProduct.stock_quantity) : form.stock_quantity;
+      const savedVariants: VariantFormRow[] = Array.isArray(data.variants) ? data.variants.map(variantToFormRow) : form.variants;
+      // Los colores devueltos traen sus ids; si no se tocaron durante el guardado, reemplazan a los del formulario.
+      setForm(prev => ({
+        ...prev,
+        stock_quantity: savedStock,
+        variants: prev.variants === sentVariants ? savedVariants : prev.variants,
+      }));
+      setSaved({ ...snapshot, stock_quantity: Number(savedStock) || 0, variants: normalizeVariantRows(savedVariants) });
       setJustSaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setJustSaved(false), 2000);
@@ -446,6 +471,18 @@ export default function EditProductoPage() {
               />
             </Section>
 
+            {/* Colores de carcasa */}
+            <Section title="Colores de carcasa">
+              <ProductVariantsEditor
+                rows={form.variants}
+                onChange={rows => set('variants', rows)}
+                galleryImages={form.images}
+                savedTotal={Number(saved?.stock_quantity ?? form.stock_quantity) || 0}
+                dirty={variantsDirty(form, saved)}
+                disabled={submitting}
+              />
+            </Section>
+
             {/* Estado */}
             <Section title="Estado y visibilidad">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -470,13 +507,16 @@ export default function EditProductoPage() {
                   <span className="text-sm font-medium text-gray-700">★ Destacado en home</span>
                 </label>
                 <div className="sm:ml-auto">
-                  <Field label="Stock" hint="">
+                  <Field label="Stock" hint={form.variants.length > 0 ? 'Se calcula con los colores' : ''}>
                     <input
                       type="number"
                       value={form.stock_quantity}
                       onChange={e => set('stock_quantity', e.target.value)}
                       min={0}
-                      className={`${INPUT} w-24`}
+                      readOnly={form.variants.length > 0}
+                      aria-readonly={form.variants.length > 0}
+                      title={form.variants.length > 0 ? 'Con colores, el stock total es la suma de sus existencias' : undefined}
+                      className={`${INPUT} w-24 ${form.variants.length > 0 ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
                     />
                   </Field>
                 </div>

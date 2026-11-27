@@ -21,7 +21,8 @@
     "test:product-images": "node --test tests/product-images.unit.test.mjs",
     "test:product-form-dirty": "node --test tests/product-form-dirty.unit.test.mjs",
     "test:categories": "node --test tests/categories.unit.test.mjs",
-    "test:categories-db": "node --test tests/db/categorias.db.test.mjs"
+    "test:categories-db": "node --test tests/db/categorias.db.test.mjs",
+    "test:variants-db": "node --test tests/db/variantes.db.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

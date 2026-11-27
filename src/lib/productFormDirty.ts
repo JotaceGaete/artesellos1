@@ -7,6 +7,7 @@
  * petición se consideran iguales (p. ej. espacios al final, o volver a marcar una
  * categoría que se había desmarcado).
  */
+import { normalizeVariantRows, type VariantFormRow } from '@/lib/productVariants';
 
 export interface ProductFormValues {
   name: string;
@@ -21,6 +22,8 @@ export interface ProductFormValues {
   featured: boolean;
   stock_status: 'instock' | 'outofstock';
   stock_quantity: string;
+  /** Colores de carcasa, en su orden (opcional: sin colores = lista vacía). */
+  variants?: VariantFormRow[];
 }
 
 export interface NormalizedProductForm {
@@ -39,6 +42,8 @@ export interface NormalizedProductForm {
   featured: boolean;
   stock_status: 'instock' | 'outofstock';
   stock_quantity: number;
+  /** Colores en su orden: agregar, quitar, reordenar o editar uno es un cambio. */
+  variants: ReturnType<typeof normalizeVariantRows>;
 }
 
 const digits = (v: unknown) => Number(String(v ?? '').replace(/\D/g, '')) || 0;
@@ -59,6 +64,7 @@ export function normalizeProductForm(form: ProductFormValues): NormalizedProduct
     featured: form.featured === true,
     stock_status: form.stock_status === 'outofstock' ? 'outofstock' : 'instock',
     stock_quantity: Number(form.stock_quantity) || 0,
+    variants: normalizeVariantRows(form.variants ?? []),
   };
 }
 
@@ -101,3 +107,9 @@ export const SAVE_BUTTON_TONE_CLASSES: Record<SaveButtonTone, string> = {
   saved: 'text-white bg-emerald-600 cursor-default',
   idle: 'text-gray-500 bg-gray-200 cursor-not-allowed',
 };
+
+/** true si los colores difieren de lo último guardado (para decidir si se envían). */
+export function variantsDirty(current: ProductFormValues, saved: NormalizedProductForm | null): boolean {
+  if (!saved) return false;
+  return JSON.stringify(normalizeVariantRows(current.variants ?? [])) !== JSON.stringify(saved.variants);
+}

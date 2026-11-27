@@ -7,6 +7,24 @@ import { unknownCategorySlugs } from '@/lib/categories';
 import { requireAdminSession } from '@/lib/adminSession'
 import type { Json } from '@/types/database'
 import { normalizeProductImages, resolveImagesUpdate } from '@/lib/productImages'
+import { parseVariantsInput } from '@/lib/productVariants'
+
+/** true si la base todavía no tiene la migración 2a (función o columnas ausentes). */
+function isMissing2a(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) return false
+  return error.code === 'PGRST202' || error.code === '42883' || error.code === '42703' || /save_product_with_variants|sort_order/.test(String(error.message ?? ''))
+}
+
+/** Colores del producto en su orden (con respaldo si falta la columna sort_order). */
+async function loadVariants(supabase: any, productId: string) {
+  let res = await supabase.from('product_colors').select('*').eq('product_id', productId)
+    .order('sort_order', { ascending: true }).order('created_at', { ascending: true })
+  if (res.error && isMissing2a(res.error)) {
+    res = await supabase.from('product_colors').select('*').eq('product_id', productId).order('created_at', { ascending: true })
+  }
+  if (res.error) throw new Error(res.error.message || 'Error al leer colores')
+  return res.data ?? []
+}
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -31,7 +49,8 @@ export async function GET(
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
     // products.images es TEXT en la base: se normaliza a string[] para el frontend.
-    return NextResponse.json(normalizeProductImages(product))
+    const variants = await loadVariants(supabase, id)
+    return NextResponse.json({ ...normalizeProductImages(product), variants })
   } catch (error) {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
@@ -73,6 +92,16 @@ export async function PUT(
     if ('error' in imagesUpdate) {
       return NextResponse.json({ error: imagesUpdate.error }, { status: 400 })
     }
+
+    // Colores: ausente = no se tocan; lista = estado completo deseado (validado antes de escribir).
+    let variantsPayload: ReturnType<typeof parseVariantsInput> | null = null
+    if (Object.prototype.hasOwnProperty.call(body, 'variants') && body.variants !== undefined) {
+      variantsPayload = parseVariantsInput(body.variants)
+      if ('error' in variantsPayload) {
+        return NextResponse.json({ error: variantsPayload.error }, { status: 400 })
+      }
+    }
+    const expectedUpdatedAt = typeof body.expected_updated_at === 'string' && body.expected_updated_at ? body.expected_updated_at : null
 
     const supabase = createSupabaseAdmin()
 
@@ -117,6 +146,42 @@ export async function PUT(
       updateData.images = imagesUpdate.value
     }
 
+    // Guardado atómico del producto y sus colores, con control de concurrencia.
+    const { updated_at: _ignored, ...rpcProduct } = updateData
+    const rpc = await (supabase as any).rpc('save_product_with_variants', {
+      p_product_id: id,
+      p_expected_updated_at: expectedUpdatedAt,
+      p_product: rpcProduct,
+      p_variants: variantsPayload && 'variants' in variantsPayload ? variantsPayload.variants : null,
+    })
+
+    if (!rpc.error) {
+      const saved = rpc.data as { product: any; variants: any[] }
+      return NextResponse.json({
+        success: true,
+        product: normalizeProductImages(saved.product),
+        variants: saved.variants ?? [],
+        message: 'Producto actualizado',
+      })
+    }
+
+    if (rpc.error.code === '40001' || /modificado por otra persona/.test(String(rpc.error.message))) {
+      return NextResponse.json({ error: 'El producto fue modificado por otra persona. Recarga para ver los cambios antes de guardar.', conflict: true }, { status: 409 })
+    }
+    if (rpc.error.code === '23505') {
+      return NextResponse.json({ error: 'Hay un color o un SKU repetido' }, { status: 409 })
+    }
+    if (rpc.error.code === '23514' || rpc.error.code === '22023' || rpc.error.code === 'P0002') {
+      return NextResponse.json({ error: rpc.error.message || 'Datos inválidos' }, { status: 400 })
+    }
+    if (!isMissing2a(rpc.error)) {
+      return NextResponse.json({ error: 'Error al actualizar el producto' }, { status: 500 })
+    }
+
+    // Sin la migración 2a: se guarda como antes, y los colores no se pueden editar todavía.
+    if (variantsPayload) {
+      return NextResponse.json({ error: 'Falta aplicar la migración de colores en la base de datos' }, { status: 503 })
+    }
     const { data: product, error } = await (supabase as any)
       .from('products')
       .update(updateData as any)

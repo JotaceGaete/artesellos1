@@ -24,6 +24,7 @@ const ALIASES = {
   '@/lib/catalogCategories': './catalogCategories.mjs',
   '@/lib/categories': './categories.mjs',
   '@/lib/categoriesServer': './categoriesServer.mjs',
+  '@/lib/productVariants': './productVariants.mjs',
 };
 
 function transpile(relPath, outName) {
@@ -91,7 +92,31 @@ function createFakeSupabase(initialRows) {
     }
     then(resolve, reject) { try { resolve(this.run()); } catch (e) { reject(e); } }
   }
-  return { db, client: { from: table => new Query(table) } };
+  // Emula save_product_with_variants (la lógica real se prueba en tests/db/variantes.db.test.mjs).
+  // db.rpcMode: 'ok' | 'missing' (migración 2a sin aplicar) | 'conflict' | 'duplicate'
+  db.rpcMode = 'ok';
+  db.rpcCalls = [];
+  const rpc = async (fn, args) => {
+    db.rpcCalls.push({ fn, args: structuredClone(args) });
+    if (db.rpcMode === 'missing') return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${fn}` } };
+    if (db.rpcMode === 'conflict') return { data: null, error: { code: '40001', message: 'El producto fue modificado por otra persona. Recarga para ver los cambios.' } };
+    if (db.rpcMode === 'duplicate') return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "product_colors_sku_key"' } };
+    const product = db.products.find(r => r.id === args.p_product_id);
+    if (!product) return { data: null, error: { code: 'P0002', message: 'Producto no encontrado' } };
+    const colors = () => (db.product_colors ?? []).filter(c => c.product_id === product.id);
+    const payload = { ...args.p_product };
+    if (colors().length > 0) delete payload.stock_quantity;
+    db.writes.push({ op: 'update', table: 'products', payload: structuredClone(payload) });
+    Object.assign(product, payload, { updated_at: new Date().toISOString() });
+    if (Array.isArray(args.p_variants)) {
+      db.product_colors = (db.product_colors ?? []).filter(c => c.product_id !== product.id);
+      args.p_variants.forEach((v, i) => db.product_colors.push({ id: v.id ?? `color-${seq++}`, product_id: product.id, ...v, sort_order: i * 10 }));
+      db.writes.push({ op: 'variants', table: 'product_colors', payload: structuredClone(args.p_variants) });
+      if (colors().length > 0) product.stock_quantity = colors().reduce((a, c) => a + c.stock_quantity, 0);
+    }
+    return { data: { product: { ...product }, variants: colors().map(c => ({ ...c })) }, error: null };
+  };
+  return { db, client: { from: table => new Query(table), rpc } };
 }
 
 let lib, assetUrl, adapter, listRoute, idRoute, fake;
@@ -113,6 +138,7 @@ before(async () => {
   transpile('src/lib/catalogCategories.ts', 'catalogCategories.mjs');
   transpile('src/lib/categories.ts', 'categories.mjs');
   transpile('src/lib/categoriesServer.ts', 'categoriesServer.mjs');
+  transpile('src/lib/productVariants.ts', 'productVariants.mjs');
   transpile('src/lib/assetUrl.ts', 'assetUrl.mjs');
   transpile('src/lib/productAdapter.ts', 'productAdapter.mjs');
   transpile('src/app/api/admin/productos/route.ts', 'route-list.mjs');
@@ -478,5 +504,85 @@ describe('Catálogo público: misma lectura de imágenes que el administrador', 
     assert.deepEqual(srcs, urls);
     const vacio = adapter.adaptSupabaseProduct({ ...seedRows()[0], images: '[]' }).images.map(i => i.src);
     assert.equal(vacio.length, 1, 'producto sin imágenes muestra el placeholder');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Entrega 2a: colores de carcasa en la ficha (API [id]).
+describe('API admin: colores de carcasa', () => {
+  const variant = (o = {}) => ({ color_name: 'Azul', color_slug: 'azul', hex: '#0000ff', image_url: null, sku: null, stock_quantity: 4, active: true, ...o });
+
+  test('GET [id] entrega variants (vacío si el producto no tiene colores)', async () => {
+    const p = await (await idRoute.GET(new Request('http://x'), ctx('id-shiny-842'))).json();
+    assert.deepEqual(p.variants, []);
+  });
+
+  test('PUT sin variants no envía colores (no recalcula el stock)', async () => {
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { name: 'X' })), ctx('id-shiny-842'));
+    assert.equal(res.status, 200);
+    assert.equal(fake.db.rpcCalls.at(-1).args.p_variants, null);
+  });
+
+  test('PUT con variants guarda colores y el stock pasa a ser la suma', async () => {
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), {
+      variants: [variant(), variant({ color_name: 'Rojo', color_slug: 'rojo', stock_quantity: 2, active: false })],
+    })), ctx('id-shiny-842'));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.variants.length, 2);
+    assert.equal(body.product.stock_quantity, 6, 'los colores ocultos también cuentan');
+    assert.ok(Array.isArray(body.product.images));
+  });
+
+  test('envía expected_updated_at a la función', async () => {
+    await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { expected_updated_at: '2026-11-27T10:00:00.123Z' })), ctx('id-shiny-842'));
+    assert.equal(fake.db.rpcCalls.at(-1).args.p_expected_updated_at, '2026-11-27T10:00:00.123Z');
+  });
+
+  for (const [label, variants] of [
+    ['nombre vacío', [variant({ color_name: '  ' })]],
+    ['hex inválido', [variant({ hex: 'azul' })]],
+    ['stock negativo', [variant({ stock_quantity: -1 })]],
+    ['slug repetido', [variant(), variant({ color_slug: 'AZUL' })]],
+    ['SKU repetido', [variant({ sku: 'A1' }), variant({ color_slug: 'rojo', sku: 'A1' })]],
+    ['no es lista', 'azul'],
+  ]) {
+    test(`PUT con variants inválidos (${label}) → 400 sin escribir`, async () => {
+      const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { variants })), ctx('id-shiny-842'));
+      assert.equal(res.status, 400);
+      assert.equal(fake.db.writes.length, 0);
+      assert.equal(fake.db.rpcCalls.length, 0);
+    });
+  }
+
+  test('conflicto de concurrencia → 409 con conflict: true', async () => {
+    fake.db.rpcMode = 'conflict';
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { name: 'Y' })), ctx('id-shiny-842'));
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.conflict, true);
+    assert.match(body.error, /modificado por otra persona/);
+    assert.notEqual(row('shiny-842').name, 'Y');
+  });
+
+  test('color o SKU repetido en la base → 409 con mensaje claro', async () => {
+    fake.db.rpcMode = 'duplicate';
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { variants: [variant({ sku: 'X' })] })), ctx('id-shiny-842'));
+    assert.equal(res.status, 409);
+    assert.match((await res.json()).error, /repetido/);
+  });
+
+  test('sin la migración 2a: editar el producto sigue funcionando', async () => {
+    fake.db.rpcMode = 'missing';
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { name: 'Sin migración' })), ctx('id-shiny-842'));
+    assert.equal(res.status, 200);
+    assert.equal(row('shiny-842').name, 'Sin migración');
+  });
+
+  test('sin la migración 2a: enviar colores → 503 sin escribir', async () => {
+    fake.db.rpcMode = 'missing';
+    const res = await idRoute.PUT(jsonReq('PUT', editPayload(row('shiny-842'), { variants: [variant()] })), ctx('id-shiny-842'));
+    assert.equal(res.status, 503);
+    assert.equal(fake.db.writes.length, 0);
   });
 });
