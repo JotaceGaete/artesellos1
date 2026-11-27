@@ -409,21 +409,34 @@ describe('API admin: creación y duplicación', () => {
   });
 });
 
-describe('Compatibilidad con el catálogo público (productAdapter sin cambios)', () => {
+describe('Catálogo público: misma lectura de imágenes que el administrador', () => {
   let log;
   before(() => { log = console.log; console.log = () => {}; });
   after(() => { console.log = log; });
 
-  test('adapta los 22 valores reales igual que antes', () => {
+  test('los 22 valores reales dan la misma lista y orden que el administrador, incluido el doble serializado', () => {
     for (const r of seedRows()) {
       const srcs = adapter.adaptSupabaseProduct(r).images.map(i => i.src);
       const expected = original(r.slug).expected.map(u => assetUrl.resolveAssetUrl(u));
-      if (r.slug === 'shiny-842') {
-        // El adaptador público ya no resolvía bien este valor corrupto; se documenta y no se cambia.
-        assert.ok(srcs.length >= 1);
-        continue;
-      }
       assert.deepEqual(srcs, expected, r.slug);
+    }
+  });
+
+  test('shiny-842: la principal es la amarilla, sin URLs rotas', () => {
+    const row = seedRows().find(r => r.slug === 'shiny-842');
+    const srcs = adapter.adaptSupabaseProduct(row).images.map(i => i.src);
+    assert.equal(srcs.length, 7);
+    assert.equal(srcs[0], 'https://media.artesellos.cl/Shiny%20842/shiny-842-amarillo.jpg');
+    for (const u of srcs) assert.doesNotMatch(u, /%5B|%22|artesellos\.cl\/%/);
+  });
+
+  test('reordenar, quitar o sustituir en el admin se refleja en el catálogo', () => {
+    const base = original('trodat-4912').expected;
+    const variants = [[...base].reverse(), base.slice(1), ['https://media.artesellos.cl/nueva.webp', ...base.slice(1)]];
+    for (const v of variants) {
+      const srcs = adapter.adaptSupabaseProduct({ ...seedRows()[0], images: lib.serializeImagesForDb(v) }).images.map(i => i.src);
+      assert.deepEqual(srcs, v);
+      assert.equal(srcs[0], lib.parseImages(lib.serializeImagesForDb(v))[0]);
     }
   });
 

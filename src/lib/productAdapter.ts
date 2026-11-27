@@ -1,6 +1,9 @@
 import { Product as MockProduct } from '@/types/product';
 import { Product as SupabaseProduct } from '@/lib/supabase';
 import { resolveAssetUrl } from '@/lib/assetUrl';
+import { parseImages } from '@/lib/productImages';
+
+const PLACEHOLDER_IMAGE = 'https://media.artesellos.cl/sin-image-producto-artesellos.png';
 
  /**
  * Adaptador para convertir productos de Supabase al formato esperado por los componentes
@@ -81,125 +84,28 @@ export function adaptSupabaseProducts(supabaseProducts: SupabaseProduct[]): Mock
 }
 
 /**
- * Convierte array de imágenes (string o objetos) a array de objetos ProductImage
+ * Convierte products.images en la lista de imágenes del catálogo público.
+ *
+ * Usa parseImages, la misma lectura que el administrador: así la primera imagen
+ * del administrador es siempre la principal del catálogo, también con valores
+ * antiguos guardados como JSON en texto o serializados dos veces.
  */
-function adaptImages(images: any, productId: string): MockProduct['images'] {
-  console.log('🖼️ Adaptando imágenes:', { tipo: typeof images, esArray: Array.isArray(images), contenido: images });
-
-  // Si no hay imágenes, usar placeholder
-  if (!images || (Array.isArray(images) && images.length === 0)) {
+function adaptImages(images: unknown, _productId: string): MockProduct['images'] {
+  const urls = parseImages(images);
+  if (urls.length === 0) {
     return [{
       id: 1,
-      src: 'https://media.artesellos.cl/sin-image-producto-artesellos.png',
+      src: PLACEHOLDER_IMAGE,
       name: 'Imagen del producto',
       alt: 'Imagen del producto'
     }];
   }
-
-  // Si images es un array de strings
-  if (Array.isArray(images) && images.length > 0 && typeof images[0] === 'string') {
-    // Caso especial: array con un string que en realidad es un JSON serializado
-    if (images.length === 1) {
-      const first = String(images[0]).trim();
-      if ((first.startsWith('[') && first.endsWith(']')) || (first.startsWith('{') && first.endsWith('}'))) {
-        try {
-          const parsed = JSON.parse(first);
-          return adaptImages(parsed, productId);
-        } catch {
-          // si falla, seguimos con el mapeo normal
-        }
-      }
-    }
-    return images.map((imageSrc, index) => ({
-      id: index + 1,
-      src: resolveAssetUrl(imageSrc as string),
-      name: `Imagen ${index + 1}`,
-      alt: `Imagen del producto ${index + 1}`
-    }));
-  }
-
-  // Si images es un array de objetos (necesitamos extraer solo la URL)
-  if (Array.isArray(images) && images.length > 0 && typeof images[0] === 'object') {
-    return images.map((img, index) => {
-      // Extraer solo la URL de la imagen, evitando pasar el objeto completo
-      let imageSrc = '';
-      
-      if (typeof img === 'string') {
-        imageSrc = img;
-      } else if (img && typeof img === 'object') {
-        imageSrc = img.src || img.url || img.image || img.key || img.path || '';
-      }
-      
-      return {
-        id: index + 1,
-        src: resolveAssetUrl(imageSrc),
-        name: `Imagen ${index + 1}`,
-        alt: `Imagen del producto ${index + 1}`
-      };
-    });
-  }
-
-  // Si images es un string simple o un JSON serializado
-  if (typeof images === 'string') {
-    const trimmed = images.trim();
-    // Intentar parsear si parece JSON serializado
-    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        // Si es array: procesar como array (strings u objetos)
-        if (Array.isArray(parsed)) {
-          if (parsed.length === 0) {
-            return [{ id: 1, src: resolveAssetUrl(''), name: 'Imagen del producto', alt: 'Imagen del producto' }];
-          }
-          if (typeof parsed[0] === 'string') {
-            return parsed.map((url: string, index: number) => ({
-              id: index + 1,
-              src: resolveAssetUrl(url),
-              name: `Imagen ${index + 1}`,
-              alt: `Imagen del producto ${index + 1}`
-            }));
-          }
-          if (typeof parsed[0] === 'object') {
-            return parsed.map((img: any, index: number) => ({
-              id: img.id || index + 1,
-              src: resolveAssetUrl(img.src || img.url || img.image || img.key || img.path || ''),
-              name: img.name || `Imagen ${index + 1}`,
-              alt: img.alt || `Imagen del producto ${index + 1}`
-            }));
-          }
-        }
-        // Si es objeto simple con url/src
-        if (parsed && typeof parsed === 'object') {
-          const imageSrc = parsed.src || parsed.url || parsed.image || parsed.key || parsed.path || '';
-          return [{ id: 1, src: resolveAssetUrl(imageSrc), name: 'Imagen del producto', alt: 'Imagen del producto' }];
-        }
-      } catch {
-        // Si falla el parse, tratamos como URL única
-      }
-    }
-    // Tratar como URL simple
-    return [{ id: 1, src: resolveAssetUrl(trimmed), name: 'Imagen del producto', alt: 'Imagen del producto' }];
-  }
-
-  // Si images es un objeto simple con una URL
-  if (images && typeof images === 'object' && !Array.isArray(images)) {
-    const imageSrc = images.src || images.url || images.image || images.key || images.path || '';
-    return [{
-      id: 1,
-      src: resolveAssetUrl(imageSrc),
-      name: 'Imagen del producto',
-      alt: 'Imagen del producto'
-    }];
-  }
-
-  // Fallback
-  console.warn('⚠️ Formato de imagen no reconocido, usando placeholder');
-  return [{
-    id: 1,
-    src: 'https://media.artesellos.cl/sin-image-producto-artesellos.png',
-    name: 'Imagen del producto',
-    alt: 'Imagen del producto'
-  }];
+  return urls.map((url, index) => ({
+    id: index + 1,
+    src: resolveAssetUrl(url),
+    name: `Imagen ${index + 1}`,
+    alt: `Imagen del producto ${index + 1}`
+  }));
 }
 
 /**
