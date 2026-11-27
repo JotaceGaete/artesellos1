@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoImagePlaceholder from "@/components/seo/SeoImagePlaceholder";
+import StampCover from "@/components/seo/StampCover";
+import CtaBanner from "@/components/seo/CtaBanner";
+import ProductPicks from "@/components/seo/ProductPicks";
+import { PRODUCTS } from "@/lib/blog";
 import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Timbres automáticos de goma en Chile",
@@ -15,14 +17,21 @@ export const metadata: Metadata = {
 export default function TimbresAutomaticosPage() {
   return (
     <SeoProse>
-      <h1 className="!mb-6 text-3xl font-bold text-gray-900 sm:text-4xl">
+      <h1 className="!mb-6 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
         Timbres automáticos: productividad y repetición uniforme
       </h1>
-      <p className="text-lg text-gray-600">
+      <p className="text-lg leading-relaxed text-slate-600 sm:text-xl">
         Sellos con cuerpo automático para quienes estampan cientos de veces al día sin sacrificar
         nitidez.
       </p>
-      <SeoImagePlaceholder label="Timbre automático en uso" />
+      <figure className="not-prose my-10 overflow-hidden rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
+        <StampCover
+          title="Ilustración de un timbre automático estampando"
+          lines={["AUTOMÁTICO", "TINTA INCLUIDA"]}
+          shape="round"
+          tone="violet"
+        />
+      </figure>
 
       <h2>Cómo funcionan y cuándo compensan frente a sellos manuales</h2>
       <p>
@@ -86,12 +95,12 @@ export default function TimbresAutomaticosPage() {
         mejor combinación para tu equipo.
       </p>
 
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Cotiza tu timbre automático</p>
-        <WhatsAppButton message="Hola, quiero cotizar un timbre automático. ¿Qué modelos manejan?">
-          WhatsApp
-        </WhatsAppButton>
-      </div>
+      <ProductPicks products={[PRODUCTS.automatik913, PRODUCTS.trodat9511, PRODUCTS.trodat4912]} />
+
+      <CtaBanner
+        title="Cotiza tu timbre automático"
+        message="Hola, quiero cotizar un timbre automático. ¿Qué modelos manejan?"
+      />
     </SeoProse>
   );
 }

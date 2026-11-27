@@ -1,31 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
+import ArticleLayout from "@/components/seo/ArticleLayout";
+import { getPost, postMetadata } from "@/lib/blog";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = postMetadata("como-hacer-un-timbre-de-empresa", {
   title: "Cómo hacer un timbre de empresa en Chile",
   description:
     "Guía completa: datos obligatorios y opcionales, diseño, archivos y producción de un timbre corporativo de goma en Chile.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/como-hacer-un-timbre-de-empresa" },
-};
+});
 
 export default function BlogComoHacerTimbreEmpresaPage() {
   return (
-    <SeoProse>
-      <p className="text-sm font-medium text-indigo-600">
-        <Link href="/blog">← Volver al blog</Link>
-      </p>
-      <h1 className="!mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
-        Cómo hacer un timbre de empresa: guía práctica para Chile
-      </h1>
-      <p className="text-lg text-gray-600">
-        Del brief inicial al sello listo para estampar: qué definir, qué evitar y cómo trabajar con
-        un fabricante confiable.
-      </p>
+    <ArticleLayout
+      post={getPost("como-hacer-un-timbre-de-empresa")}
+      heading="Cómo hacer un timbre de empresa: guía práctica para Chile"
+      lead="Del brief inicial al sello listo para estampar: qué definir, qué evitar y cómo trabajar con un fabricante confiable."
+      ctaTitle="Te ayudamos a diseñar tu timbre de empresa"
+      ctaMessage="Hola, leí el blog y quiero hacer un timbre de empresa. ¿Me orientan?"
+    >
 
-      <h2>1. Define el objetivo del timbre y dónde lo usarás</h2>
+      <h2 id="define-el-objetivo-del-timbre">1. Define el objetivo del timbre y dónde lo usarás</h2>
       <p>
         Antes de abrir un software de diseño, aclara para qué documentos servirá el timbre. Un
         bloque pensado solo para facturas auxiliares no es igual a uno para recibos de bodega o
@@ -51,7 +45,7 @@ export default function BlogComoHacerTimbreEmpresaPage() {
         trabajo: su valor está en reducir fricción diaria, no en lucir recargado.
       </p>
 
-      <h2>2. Contenido: qué texto incluir y cómo jerarquizarlo</h2>
+      <h2 id="contenido-que-texto-incluir-y-como">2. Contenido: qué texto incluir y cómo jerarquizarlo</h2>
       <p>
         Un timbre de empresa típico incluye razón social, RUT, domicilio y canales de contacto. La
         jerarquía visual importa: lo más importante debe ocupar mayor peso tipográfico o posición
@@ -76,7 +70,7 @@ export default function BlogComoHacerTimbreEmpresaPage() {
         en la primera.
       </p>
 
-      <h2>3. Archivos, formatos y revisión antes de grabar</h2>
+      <h2 id="archivos-formatos-y-revision-antes">3. Archivos, formatos y revisión antes de grabar</h2>
       <p>
         Lo ideal es enviar vectores editables o PDFs con fuentes incrustadas. Si no dispones de
         ellos, muchos fabricantes pueden vectorizar a partir de una imagen nítida, pero el tiempo
@@ -100,7 +94,7 @@ export default function BlogComoHacerTimbreEmpresaPage() {
         cuando el flujo lo justifique mejora ergonomía y consistencia.
       </p>
 
-      <h2>4. Errores frecuentes al preparar un timbre corporativo</h2>
+      <h2 id="errores-frecuentes-al-preparar-un-timbre">4. Errores frecuentes al preparar un timbre corporativo</h2>
       <p>
         Uno de los errores más comunes es mezclar demasiadas funciones en un solo sello: datos
         tributarios, redes sociales, eslogan y firma en un espacio reducido. El resultado suele ser
@@ -119,7 +113,7 @@ export default function BlogComoHacerTimbreEmpresaPage() {
         bloque “para todos” que no termina sirviendo bien a nadie.
       </p>
 
-      <h2>5. Producción, plazos y proveedor en Chile</h2>
+      <h2 id="produccion-plazos-y-proveedor-en-chile">5. Producción, plazos y proveedor en Chile</h2>
       <p>
         Cotiza con plazos realistas y preguntas directas sobre grabado, montaje y despacho. Un
         proveedor transparente explica limitaciones de tamaño, tipo de goma y opciones de tinta.
@@ -141,13 +135,6 @@ export default function BlogComoHacerTimbreEmpresaPage() {
         <Link href="/blog/tipos-de-timbres">tipos de timbres</Link> para cerrar la elección con
         información comparada.
       </p>
-
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Te ayudamos a diseñar tu timbre de empresa</p>
-        <WhatsAppButton message="Hola, leí el blog y quiero hacer un timbre de empresa. ¿Me orientan?">
-          Escribir por WhatsApp
-        </WhatsAppButton>
-      </div>
-    </SeoProse>
+    </ArticleLayout>
   );
 }

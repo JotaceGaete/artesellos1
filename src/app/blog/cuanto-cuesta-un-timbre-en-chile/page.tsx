@@ -1,31 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
+import ArticleLayout from "@/components/seo/ArticleLayout";
+import { getPost, postMetadata } from "@/lib/blog";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = postMetadata("cuanto-cuesta-un-timbre-en-chile", {
   title: "Cuánto cuesta un timbre en Chile",
   description:
     "Factores de precio, rangos orientativos y consejos para cotizar timbres de goma en Chile sin perder calidad de grabado.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "/blog/cuanto-cuesta-un-timbre-en-chile" },
-};
+});
 
 export default function BlogCuantoCuestaTimbrePage() {
   return (
-    <SeoProse>
-      <p className="text-sm font-medium text-indigo-600">
-        <Link href="/blog">← Volver al blog</Link>
-      </p>
-      <h1 className="!mb-4 text-3xl font-bold text-gray-900 sm:text-4xl">
-        Cuánto cuesta un timbre en Chile: variables que definen el precio
-      </h1>
-      <p className="text-lg text-gray-600">
-        Referencias útiles para presupuestar sellos de goma según tamaño, complejidad y tipo de
-        montaje—sin perder de vista la calidad.
-      </p>
+    <ArticleLayout
+      post={getPost("cuanto-cuesta-un-timbre-en-chile")}
+      heading="Cuánto cuesta un timbre en Chile: variables que definen el precio"
+      lead="Referencias útiles para presupuestar sellos de goma según tamaño, complejidad y tipo de montaje—sin perder de vista la calidad."
+      ctaTitle="Cotiza con tu caso específico"
+      ctaMessage="Hola, quiero saber cuánto cuesta un timbre según mi diseño."
+    >
 
-      <h2>Por qué no existe un único precio “correcto”</h2>
+      <h2 id="por-que-no-existe-un-unico">Por qué no existe un único precio “correcto”</h2>
       <p>
         El precio de un timbre en Chile depende de una mezcla de factores: tamaño del grabado,
         complejidad del diseño, tipo de montaje (madera, automático, preentintado), urgencia y
@@ -51,7 +45,7 @@ export default function BlogCuantoCuestaTimbrePage() {
         resultado.
       </p>
 
-      <h2>Componentes del costo: diseño, grabado y montaje</h2>
+      <h2 id="componentes-del-costo-diseno-grabado">Componentes del costo: diseño, grabado y montaje</h2>
       <p>
         El diseño puede ser gratuito si traes archivo listo, o implicar horas de vectorización si
         solo dispones de una imagen de baja calidad. Cuando el logo tiene trazos finos o degradés,
@@ -75,7 +69,7 @@ export default function BlogCuantoCuestaTimbrePage() {
         precio inicial se compensa en semanas si el volumen de estampado es alto.
       </p>
 
-      <h2>Despacho, urgencias y mantenimiento</h2>
+      <h2 id="despacho-urgencias-y-mantenimiento">Despacho, urgencias y mantenimiento</h2>
       <p>
         El envío dentro de Chile agrega un componente variable según región y courier. Si estás en
         el Biobío o zonas cercanas, pregunta por retiro en taller o puntos asociados; puede ser una
@@ -96,7 +90,7 @@ export default function BlogCuantoCuestaTimbrePage() {
         el precio inicial no sea el más bajo del mercado.
       </p>
 
-      <h2>Cómo cotizar bien y qué pedir en la propuesta</h2>
+      <h2 id="como-cotizar-bien-y-que-pedir">Cómo cotizar bien y qué pedir en la propuesta</h2>
       <p>
         Para recibir un número serio, envía: medidas aproximadas o tamaño deseado, texto completo,
         logo en vector si existe, tipo de papel/superficie y estimación de uso diario. Si necesitas
@@ -123,13 +117,6 @@ export default function BlogCuantoCuestaTimbrePage() {
         preparar archivos y contenidos antes de pedir cotización. También puedes explorar el{" "}
         <Link href="/productos">catálogo</Link> para ver formatos disponibles.
       </p>
-
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Cotiza con tu caso específico</p>
-        <WhatsAppButton message="Hola, quiero saber cuánto cuesta un timbre según mi diseño.">
-          Pedir cotización
-        </WhatsAppButton>
-      </div>
-    </SeoProse>
+    </ArticleLayout>
   );
 }

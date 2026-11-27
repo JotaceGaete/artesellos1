@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoImagePlaceholder from "@/components/seo/SeoImagePlaceholder";
+import StampCover from "@/components/seo/StampCover";
+import CtaBanner from "@/components/seo/CtaBanner";
+import ProductPicks from "@/components/seo/ProductPicks";
+import { PRODUCTS } from "@/lib/blog";
 import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Timbres para empresa en Chile | Sellos corporativos",
@@ -15,14 +17,21 @@ export const metadata: Metadata = {
 export default function TimbresEmpresaPage() {
   return (
     <SeoProse>
-      <h1 className="!mb-6 text-3xl font-bold text-gray-900 sm:text-4xl">
+      <h1 className="!mb-6 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
         Timbres para empresa: orden, trazabilidad y presencia de marca
       </h1>
-      <p className="text-lg text-gray-600">
+      <p className="text-lg leading-relaxed text-slate-600 sm:text-xl">
         Sellos corporativos para documentos, bodega y atención al cliente, fabricados con estándares
         de legibilidad y durabilidad.
       </p>
-      <SeoImagePlaceholder label="Timbre corporativo con datos de empresa" />
+      <figure className="not-prose my-10 overflow-hidden rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
+        <StampCover
+          title="Ilustración de un timbre corporativo con datos de empresa"
+          lines={["EMPRESA SpA", "RUT 76.123.456-7", "Av. Providencia 123"]}
+          shape="rect"
+          tone="indigo"
+        />
+      </figure>
 
       <h2>Por qué un timbre empresa sigue siendo herramienta clave</h2>
       <p>
@@ -85,12 +94,12 @@ export default function TimbresEmpresaPage() {
         propuesta alineada a tu calendario operativo.
       </p>
 
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Cotiza sellos corporativos con asesoría</p>
-        <WhatsAppButton message="Hola, necesito timbres para mi empresa en Chile. ¿Pueden asesorarme?">
-          WhatsApp
-        </WhatsAppButton>
-      </div>
+      <ProductPicks products={[PRODUCTS.trodat4915, PRODUCTS.trodat4912, PRODUCTS.trodat9511]} />
+
+      <CtaBanner
+        title="Cotiza sellos corporativos con asesoría"
+        message="Hola, necesito timbres para mi empresa en Chile. ¿Pueden asesorarme?"
+      />
     </SeoProse>
   );
 }

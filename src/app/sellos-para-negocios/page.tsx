@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoImagePlaceholder from "@/components/seo/SeoImagePlaceholder";
+import StampCover from "@/components/seo/StampCover";
+import CtaBanner from "@/components/seo/CtaBanner";
+import ProductPicks from "@/components/seo/ProductPicks";
+import { PRODUCTS } from "@/lib/blog";
 import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Sellos para negocios y retail en Chile",
@@ -15,14 +17,21 @@ export const metadata: Metadata = {
 export default function SellosParaNegociosPage() {
   return (
     <SeoProse>
-      <h1 className="!mb-6 text-3xl font-bold text-gray-900 sm:text-4xl">
+      <h1 className="!mb-6 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
         Sellos para negocios: del mostrador al packaging
       </h1>
-      <p className="text-lg text-gray-600">
+      <p className="text-lg leading-relaxed text-slate-600 sm:text-xl">
         Ideas y aplicaciones para que tu tienda o servicio profesional aproveche los timbres de
         goma más allá del papel administrativo.
       </p>
-      <SeoImagePlaceholder label="Sellos aplicados en negocio local" />
+      <figure className="not-prose my-10 overflow-hidden rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
+        <StampCover
+          title="Ilustración de un sello de marca para packaging"
+          lines={["GRACIAS", "POR TU COMPRA"]}
+          shape="round"
+          tone="amber"
+        />
+      </figure>
 
       <h2>Experiencia de marca en el punto de venta</h2>
       <p>
@@ -86,12 +95,12 @@ export default function SellosParaNegociosPage() {
         una solución escalable, con despacho a tu comuna o región.
       </p>
 
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Diseña tu kit de sellos para negocio</p>
-        <WhatsAppButton message="Hola, tengo un negocio y quiero sellos para packaging y documentos.">
-          Cotizar por WhatsApp
-        </WhatsAppButton>
-      </div>
+      <ProductPicks products={[PRODUCTS.traxx9045, PRODUCTS.shinyS723, PRODUCTS.printy3911]} />
+
+      <CtaBanner
+        title="Diseña tu kit de sellos para negocio"
+        message="Hola, tengo un negocio y quiero sellos para packaging y documentos."
+      />
     </SeoProse>
   );
 }

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SeoImagePlaceholder from "@/components/seo/SeoImagePlaceholder";
+import StampCover from "@/components/seo/StampCover";
+import CtaBanner from "@/components/seo/CtaBanner";
+import ProductPicks from "@/components/seo/ProductPicks";
+import { PRODUCTS } from "@/lib/blog";
 import SeoProse from "@/components/seo/SeoProse";
-import WhatsAppButton from "@/components/seo/WhatsAppButton";
 
 export const metadata: Metadata = {
   title: "Timbre RUT y datos de empresa en Chile",
@@ -15,14 +17,21 @@ export const metadata: Metadata = {
 export default function TimbreRutPage() {
   return (
     <SeoProse>
-      <h1 className="!mb-6 text-3xl font-bold text-gray-900 sm:text-4xl">
+      <h1 className="!mb-6 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
         Timbre RUT: qué es, qué debe incluir y para qué sirve en Chile
       </h1>
-      <p className="text-lg text-gray-600">
+      <p className="text-lg leading-relaxed text-slate-600 sm:text-xl">
         Guía práctica sobre el <strong>sello RUT</strong> y timbres con datos tributarios para
         pymes y profesionales.
       </p>
-      <SeoImagePlaceholder label="Timbre con RUT y razón social" />
+      <figure className="not-prose my-10 overflow-hidden rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
+        <StampCover
+          title="Ilustración de un timbre con RUT y razón social"
+          lines={["RUT 12.345.678-9", "María González", "Contador Auditor"]}
+          shape="rect"
+          tone="sky"
+        />
+      </figure>
 
       <h2>Qué es un timbre RUT y en qué se diferencia de otros sellos</h2>
       <p>
@@ -96,12 +105,12 @@ export default function TimbreRutPage() {
         ofrece un panorama útil antes de cotizar.
       </p>
 
-      <div className="not-prose mt-10 flex flex-col items-start gap-4 rounded-xl border border-gray-200 bg-gray-50 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-lg font-semibold text-gray-900">Pide tu timbre con RUT y datos corporativos</p>
-        <WhatsAppButton message="Hola, necesito un timbre RUT / sello con datos de empresa. ¿Me ayudan con el diseño?">
-          Cotizar timbre RUT
-        </WhatsAppButton>
-      </div>
+      <ProductPicks products={[PRODUCTS.trodat4912, PRODUCTS.printy3911, PRODUCTS.trodat4915]} />
+
+      <CtaBanner
+        title="Pide tu timbre con RUT y datos corporativos"
+        message="Hola, necesito un timbre RUT / sello con datos de empresa. ¿Me ayudan con el diseño?"
+      />
     </SeoProse>
   );
 }
