@@ -88,8 +88,16 @@ export default function ProductImageUploader({ value, onChange, onBusyChange }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Notify parent on every items change
+  // Notify parent on every items change.
+  // La primera ejecución (montaje) se omite: los items todavía están vacíos y el padre ya
+  // tiene `value`; notificarla vaciaría las imágenes un instante y el editor lo tomaría
+  // como un cambio pendiente.
+  const notifiedOnce = useRef(false);
   useEffect(() => {
+    if (!notifiedOnce.current) {
+      notifiedOnce.current = true;
+      return;
+    }
     const urls = items.filter(i => i.url && !i.uploading && !i.error).map(i => i.url);
     onChangeRef.current(urls);
     onBusyRef.current?.(items.some(i => i.uploading));

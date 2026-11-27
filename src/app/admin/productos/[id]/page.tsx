@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CATALOG_CATEGORIES } from '@/lib/catalogCategories';
 import { resolveAssetUrl } from '@/lib/assetUrl';
 import { parseImages } from '@/lib/productImages';
 import ProductImageUploader from '@/components/admin/ProductImageUploader';
+import {
+  normalizeProductForm,
+  isProductFormDirty,
+  saveButtonState,
+  SAVE_BUTTON_TONE_CLASSES,
+  type NormalizedProductForm,
+} from '@/lib/productFormDirty';
 
 const toSlug = (str: string) =>
   str.toLowerCase()
@@ -81,8 +88,19 @@ export default function EditProductoPage() {
   const [duplicating, setDuplicating] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
   const [notFound, setNotFound] = useState(false);
-  // Imágenes tal como se cargaron; si no cambian, el PUT omite `images` y el servidor las conserva.
-  const [initialImages, setInitialImages] = useState<string[] | null>(null);
+  // Copia normalizada de los últimos datos guardados correctamente (o cargados).
+  // Si las imágenes no cambian respecto de esta copia, el PUT omite `images` y el servidor las conserva.
+  const [saved, setSaved] = useState<NormalizedProductForm | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+  const savingRef = useRef(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dirty = useMemo(() => isProductFormDirty(form, saved), [form, saved]);
+  const saveButton = saveButtonState({ dirty, submitting, imagesBusy, justSaved });
+
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type });
@@ -110,9 +128,7 @@ export default function EditProductoPage() {
         if (!res.ok) { setNotFound(true); return; }
         const data = await res.json();
         const loadedImages = parseImages(data.images);
-        setInitialImages(loadedImages);
-
-        setForm({
+        const loaded: FormData = {
           name: data.name ?? '',
           slug: data.slug ?? '',
           price: data.price?.toString() ?? '',
@@ -125,7 +141,10 @@ export default function EditProductoPage() {
           featured: Boolean(data.featured),
           stock_status: data.stock_status === 'outofstock' ? 'outofstock' : 'instock',
           stock_quantity: data.stock_quantity?.toString() ?? '0',
-        });
+        };
+        // La carga inicial no es una modificación: formulario y copia guardada parten iguales.
+        setForm(loaded);
+        setSaved(normalizeProductForm(loaded));
       } catch {
         setNotFound(true);
       } finally {
@@ -136,9 +155,12 @@ export default function EditProductoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Evita solicitudes duplicadas (doble clic o Enter mientras se guarda) y envíos sin cambios.
+    if (savingRef.current || !dirty || imagesBusy) return;
 
+    const snapshot = normalizeProductForm(form);
     const imagesChanged =
-      initialImages === null || JSON.stringify(initialImages) !== JSON.stringify(form.images);
+      saved === null || JSON.stringify(saved.images) !== JSON.stringify(snapshot.images);
     const clearingAll = imagesChanged && form.images.length === 0;
     if (clearingAll && !confirm('¿Guardar el producto sin ninguna imagen? Se quitarán todas sus fotos.')) {
       return;
@@ -149,7 +171,9 @@ export default function EditProductoPage() {
         ? { images: [], clear_images: true }
         : { images: form.images };
 
+    savingRef.current = true;
     setSubmitting(true);
+    setJustSaved(false);
     try {
       const res = await fetch(`/api/admin/productos/${productId}`, {
         method: 'PUT',
@@ -171,11 +195,18 @@ export default function EditProductoPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || data.message || 'Error al guardar');
-      setInitialImages(parseImages(data.product?.images ?? form.images));
+      // Lo enviado pasa a ser la nueva referencia. Si se editó algo durante el guardado,
+      // esa edición sigue contando como cambio pendiente.
+      setSaved(snapshot);
+      setJustSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setJustSaved(false), 2000);
       showToast('Cambios guardados');
     } catch (err: any) {
+      // Se conservan las modificaciones: el formulario no se toca y el botón vuelve a «Guardar cambios».
       showToast(err.message, 'err');
     } finally {
+      savingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -463,10 +494,12 @@ export default function EditProductoPage() {
               </Link>
               <button
                 type="submit"
-                disabled={submitting || imagesBusy}
-                className="flex-1 sm:flex-none px-6 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                disabled={saveButton.disabled}
+                aria-disabled={saveButton.disabled}
+                aria-live="polite"
+                className={`flex-1 sm:flex-none px-6 py-2 text-sm font-semibold rounded-lg transition-colors ${SAVE_BUTTON_TONE_CLASSES[saveButton.tone]}`}
               >
-                {imagesBusy ? 'Subiendo imágenes…' : submitting ? 'Guardando…' : 'Guardar cambios'}
+                {saveButton.label}
               </button>
             </div>
           </div>
