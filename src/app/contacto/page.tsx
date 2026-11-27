@@ -102,9 +102,7 @@ export default function ContactPage() {
                     <span className="text-2xl">📍</span>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Fábrica y domicilio tributario</h3>
-                    <p className="text-gray-600">Pasaje Minero Héctor Inostroza Arévalo 2311, Coronel</p>
-                    <h3 className="font-semibold text-gray-900 mt-4 mb-1">Entregas y retiro de pedidos</h3>
+                    <h3 className="font-semibold text-gray-900 mb-1">Entregas y retiro de pedidos</h3>
                     <p className="text-gray-600">Bannen 83, local 4, centro de Coronel</p>
                     <p className="text-sm text-gray-500 mt-1">Chile</p>
                   </div>
